@@ -33,8 +33,20 @@ To try your changes locally with pi, run the following from the repository root:
 pi -e .
 ```
 
-## Commit Message Guidelines
+## Development Flow
 
-This project follows [Conventional Commits](https://www.conventionalcommits.org/). Please write commit messages in the form `type: subject` (e.g. `feat: add qdash_dashboard tool`).
+- `main` is the release branch. Create a feature branch from `main` and open a pull request.
+- Pull requests are squash-merged. The PR title becomes the commit message on `main` and the changelog entry, so it must follow [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat: add qdash_dashboard tool`).
+- CI runs the type check on every pull request.
+
+## Release Flow
+
+Releases are automated with [tagpr](https://github.com/Songmu/tagpr):
+
+1. When pull requests are merged into `main`, tagpr opens (or updates) a release pull request that bumps the version in `package.json` and updates `CHANGELOG.md`.
+2. The version bump is patch by default. Add the `tagpr:minor` or `tagpr:major` label to the release pull request to change it.
+3. Merging the release pull request creates a `v*` tag, and the publish workflow releases the package to npm with provenance.
+
+Do not bump the version in `package.json` or edit `CHANGELOG.md` manually; tagpr manages both.
 
 Thank you for your contributions!
