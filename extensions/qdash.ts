@@ -2062,6 +2062,102 @@ function figureComponent(details: FigureDetails, theme: Theme) {
   return textComponent(figureResultText(details).split("\n"), theme);
 }
 
+type PlotlyTrace = Record<string, unknown>;
+
+type FigureAnalysis = {
+  path: string;
+  taskId?: string;
+  traceCount: number;
+  summaries: string[];
+  warnings: string[];
+};
+
+function numericArray(value: unknown): number[] {
+  return Array.isArray(value) ? value.filter((item): item is number => typeof item === "number" && Number.isFinite(item)) : [];
+}
+
+function numericMatrix(value: unknown): number[][] {
+  return Array.isArray(value)
+    ? value.map((row) => numericArray(row)).filter((row) => row.length > 0)
+    : [];
+}
+
+function matrixValue(matrix: number[][], row: number, column: number): number | undefined {
+  return matrix[row]?.[column];
+}
+
+function compactStats(values: number[]): string {
+  if (!values.length) return "no numeric values";
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return `n=${values.length} min=${formatNumber(min)} max=${formatNumber(max)} mean=${formatNumber(mean)}`;
+}
+
+function formatMaybeNumber(value: number | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? formatNumber(value) : "n/a";
+}
+
+function analyzePlotlyFigure(path: string, figure: unknown, taskId?: string): FigureAnalysis {
+  const object = figure && typeof figure === "object" ? figure as Record<string, unknown> : {};
+  const traces = Array.isArray(object.data) ? object.data.filter((trace): trace is PlotlyTrace => Boolean(trace) && typeof trace === "object") : [];
+  const summaries: string[] = [];
+  const warnings: string[] = [];
+
+  traces.forEach((trace, index) => {
+    const type = typeof trace.type === "string" ? trace.type : "unknown";
+    const name = typeof trace.name === "string" ? trace.name : `trace ${index}`;
+    if (type === "scatter" || Array.isArray(trace.y)) {
+      const y = numericArray(trace.y);
+      const x = numericArray(trace.x);
+      const err = trace.error_y && typeof trace.error_y === "object" ? (trace.error_y as Record<string, unknown>).value : undefined;
+      summaries.push(`${index}: scatter ${name} y(${compactStats(y)}) first=${formatMaybeNumber(y[0])} last=${formatMaybeNumber(y[y.length - 1])}${typeof err === "number" ? ` err=${formatNumber(err)}` : ""}`);
+      if (y.length >= 5) {
+        const tail = y.slice(Math.floor(y.length / 2));
+        const tailSpan = Math.max(...tail) - Math.min(...tail);
+        if (tailSpan > 0.4) warnings.push(`scatter ${name}: late repetitions still have large span ${formatNumber(tailSpan)}; repeated-pulse response may be unstable`);
+        const firstStep = Math.abs((y[1] ?? y[0]) - y[0]);
+        if (firstStep > 0.6 && Math.abs(y[y.length - 1]) > 0.1) warnings.push(`scatter ${name}: large first-step contrast but non-zero final offset ${formatNumber(y[y.length - 1])}`);
+      }
+      if (x.length && y.length && x.length !== y.length) warnings.push(`scatter ${name}: x/y length mismatch ${x.length}/${y.length}`);
+      return;
+    }
+
+    if (type === "heatmap" || Array.isArray(trace.z)) {
+      const z = numericMatrix(trace.z);
+      const flat = z.flat();
+      summaries.push(`${index}: heatmap ${z.length}x${z[0]?.length ?? 0} z(${compactStats(flat)})`);
+      if (z.length === 4 && z.every((row) => row.length === 4)) {
+        const diag = [0, 1, 2, 3].map((i) => z[i][i]);
+        const pop10 = diag[2];
+        const coh0011Re = matrixValue(z, 0, 3);
+        summaries.push(`   4x4 diag=[${diag.map(formatNumber).join(", ")}]  z00,11=${formatMaybeNumber(coh0011Re)}`);
+        if (pop10 > 0.15) warnings.push(`4x4 heatmap: |10> population/component is high (${formatNumber(pop10)}); suspect Bell/Zx angle, phase, or cancel error`);
+      }
+      return;
+    }
+
+    summaries.push(`${index}: ${type}`);
+  });
+
+  if (!traces.length) warnings.push("no Plotly data traces found");
+  return { path, taskId, traceCount: traces.length, summaries, warnings };
+}
+
+function figureAnalysisText(analysis: FigureAnalysis): string {
+  return boxed("QDash Figure Analysis", [
+    `path ${analysis.path}`,
+    ...(analysis.taskId ? [`task ${analysis.taskId}`] : []),
+    `traces ${analysis.traceCount}`,
+    "",
+    "Summaries",
+    ...analysis.summaries.map((line) => `  - ${line}`),
+    "",
+    "Warnings",
+    ...(analysis.warnings.length ? analysis.warnings.map((line) => `  - ${line}`) : ["  - none"]),
+  ]).join("\n");
+}
+
 async function executeQuery(params: QDashQueryParams) {
   params = applyQDashContext(params);
   const client = await makeClient(params);
@@ -3147,6 +3243,41 @@ export default function qdashExtension(pi: ExtensionAPI) {
     },
     renderResult(result, _options, theme) {
       return figureComponent(result.details as unknown as FigureDetails, theme);
+    },
+  });
+
+  pi.registerTool({
+    name: "qdash_analyze_figure_json",
+    label: "QDash Analyze Figure JSON",
+    description: "Read-only helper that fetches a Plotly JSON calibration figure and summarizes numeric traces for agentic diagnosis.",
+    promptSnippet: "Analyze QDash calibration figure JSON traces without changing parameters",
+    promptGuidelines: [
+      "Use qdash_analyze_figure_json when a calibration figure has json_figure_path and you need numeric evidence from scatter or heatmap traces.",
+      "Treat the output as evidence for a skill/runbook decision; do not commit/apply parameters from this analysis alone.",
+    ],
+    parameters: Type.Object({
+      ...connectionParams,
+      path: Type.Optional(Type.String({ description: "Absolute JSON figure path. If omitted, taskId is required." })),
+      taskId: Type.Optional(Type.String({ description: "Task result ID used to select json_figure_path." })),
+      index: Type.Optional(Type.Number({ description: "JSON figure index for taskId selection. Defaults to 0." })),
+      includeData: Type.Optional(Type.Boolean({ description: "Include parsed Plotly JSON in structured data. Defaults to false." })),
+    }),
+    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; path?: string; taskId?: string; index?: number; includeData?: boolean }) {
+      const client = await makeClient(params);
+      let path = params.path;
+      let text = "";
+      if (path) {
+        const details = await fetchFigureDetails(client, path);
+        text = details.text ?? "";
+      } else {
+        const taskId = requireValue(params.taskId, "taskId");
+        const file: TaskResultFigureFile = await client.getTaskResultFigure(taskId, { index: params.index, preferJson: true });
+        path = file.path;
+        text = Buffer.from(file.data).toString("utf8");
+      }
+      const figure = JSON.parse(text) as unknown;
+      const analysis = analyzePlotlyFigure(path ?? "", figure, params.taskId);
+      return toTextToolResult(figureAnalysisText(analysis), { analysis, figure: params.includeData ? figure : undefined }, { tool: "qdash_analyze_figure_json", path, data: analysis });
     },
   });
 

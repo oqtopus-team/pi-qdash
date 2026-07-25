@@ -22,7 +22,7 @@ Use the pi-qdash tools instead of scraping the UI or hand-writing auth headers.
    - `qdash_list_executions`, `qdash_get_execution`
    - `qdash_list_ai_reviews`, `qdash_get_provenance_stats`
    - `qdash_list_forum_posts`, `qdash_get_forum_post`, `qdash_list_forum_replies`
-   - `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`
+   - `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`, `qdash_analyze_figure_json`
    - `qdash_create_forum_evidence_reply` for confirmed evidence curation replies with visible task figures
 3. Use harness overview tools for status and triage:
    - `qdash_investigate` for natural-language requests to investigate or compare recent calibration, target history, figures, failures, issues, and Forum context
@@ -107,4 +107,5 @@ When the user wants to preserve an investigated observation in QDash forum/notes
 - Use `qdash_investigate` for natural-language requests to investigate, compare, or understand a target or recent calibration; it is read-only and combines recent results with target, Forum, issue, and recommendation context.
 - Use `qdash_compare_calibration` when the user asks what changed between recent calibration experiments; treat differences as evidence, not automatic approval to commit/apply parameters.
 - Use `qdash_recent_calibration_figure` when the user asks to see recent experiment images without a task ID.
+- Use `qdash_analyze_figure_json` for read-only numeric summaries of Plotly JSON calibration figures; keep domain-specific interpretation in the matching skill.
 - Prefer summarizing large responses with counts, IDs, time ranges, and notable values.

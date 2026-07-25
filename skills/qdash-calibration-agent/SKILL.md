@@ -1,6 +1,6 @@
 ---
-name: qdash-calibration
-description: Guide conservative autonomous QDash calibration workflows from pi. Use when the user asks to calibrate, tune, recover failed calibration tasks, run agent calibration sessions, or decide the next calibration action for qubits/couplings.
+name: qdash-calibration-agent
+description: Guide conservative confirmation-gated QDash calibration execution workflows from pi. Use when the user asks to calibrate, tune, recover failed calibration tasks, run agent calibration sessions, or decide the next calibration action for qubits/couplings.
 license: Apache-2.0
 compatibility: pi-coding-agent >=0.74, pi-qdash extension, QDash agent-session APIs
 metadata:
@@ -9,7 +9,7 @@ metadata:
   maturity: experimental
   safety_level: operational-write-gated
   default_mode: one-target-one-action
-  source_of_truth: pi-qdash skill until QDash task-knowledge operation is finalized
+  source_of_truth: pi-qdash skills until QDash task-knowledge operation is finalized
   preferred_qubit_recovery_recipe: CheckRabi -> CheckChevron -> Configure -> CheckRabi
   requires_confirmation_for:
     - agent session creation
@@ -26,7 +26,7 @@ metadata:
 
 # QDash Calibration Agent
 
-This skill defines how pi should behave as a conservative calibration agent. It is operational guidance for the agent; long-lived physics/task knowledge may later move to QDash task-knowledge, but until that process is settled, keep practical calibration recipes here.
+This skill defines how pi should behave as a conservative, confirmation-gated calibration execution agent. It should orchestrate safe operational steps after diagnosis. Long-lived physics/task knowledge may later move to QDash task-knowledge; detailed read-only diagnosis should live in dedicated diagnosis skills.
 
 ## Core principles
 
@@ -139,6 +139,8 @@ Known failed pattern:
 
 ## Coupling / two-qubit recovery rules
 
+For detailed two-qubit quality diagnosis, use the `qdash-two-qubit-calibration-diagnosis` skill. Keep this section as the conservative operational rule set.
+
 For `ZX90InterleavedRandomizedBenchmarking` or two-qubit validation failures, do not rerun RB first. Walk back through prerequisites:
 
 1. `CheckCrossResonance`
@@ -147,6 +149,8 @@ For `ZX90InterleavedRandomizedBenchmarking` or two-qubit validation failures, do
 4. `CheckBellState`
 5. `CheckBellStateTomography`
 6. then RB validation
+
+Treat `completed` as execution status, not proof of quality. If Bell fidelity is low, IRB uncertainty is large, or coherence-limit fidelity is much higher than measured Bell/IRB fidelity, suspect ZX90 angle/phase/cancel/rotary calibration before blaming T1/T2.
 
 If CR rotation is weak, inspect qubit detuning/frequency collisions and coupling history before increasing CR amplitude.
 

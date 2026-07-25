@@ -31,7 +31,8 @@ session.
 
 ## Skills
 
-The package also provides two skills:
+The package also provides skills:
 
 - `/skill:qdash`: guides pi to choose the right QDash tools, avoid exposing secrets, and prefer read-only operations
-- `/skill:qdash-calibration`: guides pi through the agent calibration workflow
+- `/skill:qdash-calibration-agent`: guides pi through confirmation-gated calibration execution workflows
+- `/skill:qdash-two-qubit-calibration-diagnosis`: diagnoses two-qubit calibration quality from read-only evidence
