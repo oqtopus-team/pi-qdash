@@ -24,6 +24,14 @@ It uses [`@oqtopus-team/qdash-client`](https://www.npmjs.com/package/@oqtopus-te
 
 ## Installation
 
+Install pi first if needed:
+
+```bash
+npm install -g --ignore-scripts @earendil-works/pi-coding-agent
+```
+
+Install the published extension:
+
 ```bash
 pi install npm:@oqtopus-team/pi-qdash
 ```
@@ -47,10 +55,25 @@ In interactive pi, set up the session context first:
 
 See the documentation below for the full tool and command reference.
 
+## Developing from a Fork
+
+For local development, clone your fork, install dependencies, and run pi against the checkout:
+
+```bash
+git clone https://github.com/<your-user>/pi-qdash.git
+cd pi-qdash
+npm install
+npm run check
+pi -e .
+```
+
+See [Development Guide](./docs/DEVELOPMENT.md) for the fork workflow, local testing, PR expectations, and the extension-vs-skill design policy.
+
 ## Documentation
 
 - [Tool Reference](./docs/tools.md)
 - [Commands & Skills](./docs/commands.md)
+- [Development Guide](./docs/DEVELOPMENT.md)
 - [Contributing](./docs/CONTRIBUTING.md)
 
 ## Citation
