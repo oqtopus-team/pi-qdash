@@ -44,6 +44,12 @@ pi -e npm:@oqtopus-team/pi-qdash
 
 Requires pi v0.74.0 or later.
 
+## Demo
+
+The following demo uses the `mackerel` QDash profile to inspect a two-qubit calibration that completed but did not pass quality checks:
+
+![mackerel two-qubit calibration diagnosis demo](./docs/asset/mackerel-demo.gif)
+
 ## Quick Start
 
 In interactive pi, set up the session context first:

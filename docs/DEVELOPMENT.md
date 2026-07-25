@@ -154,6 +154,29 @@ If pi is already running after edits to skills/extensions, use:
 /reload
 ```
 
+## Demo GIFs
+
+This repository keeps VHS tapes for reproducible terminal demos under `docs/demo/` and generated assets under `docs/asset/`.
+
+To regenerate the mackerel two-qubit diagnosis demo:
+
+```bash
+brew install vhs ttyd
+/opt/homebrew/bin/vhs docs/demo/mackerel-demo.tape
+```
+
+The demo script is read-only and uses the `mackerel` QDash profile by default:
+
+```bash
+node scripts/demo-mackerel.mjs
+```
+
+Override the demo target with environment variables when needed:
+
+```bash
+QDASH_DEMO_PROFILE=mackerel QDASH_DEMO_CHIP=144Qv1 QDASH_DEMO_COUPLING=48-50 node scripts/demo-mackerel.mjs
+```
+
 ## QDash credentials and safety
 
 Never commit QDash tokens, Cloudflare Access secrets, passwords, or local config files. The extension redacts secrets in tool output, but contributors should still avoid placing secrets in test fixtures, docs examples, issue comments, or PR descriptions.
