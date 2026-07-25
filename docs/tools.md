@@ -20,7 +20,7 @@ session profile/chip context when their parameters are omitted.
 - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions`
 - `qdash_list_ai_reviews`, `qdash_get_provenance_stats`
 - `qdash_list_forum_posts`, `qdash_get_forum_post`, `qdash_list_forum_replies`
-- `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`
+- `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`, `qdash_analyze_figure_json`
 
 `qdash_get_cooldown_wiring` resolves the active/newest cooldown automatically
 from a cryostat or the current/default chip, and returns compact human-readable
@@ -66,7 +66,9 @@ text output in terminal-oriented non-interactive usage.
 
 Forum read tools render compact boxed summaries for list/detail/reply views.
 Figure tools fetch calibration PNG/JSON figures by path or task result through
-qdash-client helpers, and render images in interactive TUI.
+qdash-client helpers, and render images in interactive TUI. `qdash_analyze_figure_json`
+fetches Plotly JSON figures and summarizes numeric scatter/heatmap traces for
+read-only agentic diagnosis; domain-specific conclusions belong in skills.
 
 Forum evidence can be previewed read-only with
 `qdash_preview_forum_evidence_reply`, then published through
