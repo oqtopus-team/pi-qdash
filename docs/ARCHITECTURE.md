@@ -29,6 +29,7 @@ Shared implementation modules live here:
 - `links.ts` — QDash Web URL/link decoration helpers and safe non-secret config summaries.
 - `payload.ts` — common payload/list extraction and compact formatting helpers.
 - `results.ts` — tool result formatting and secret redaction.
+- `wiring-analysis.ts` — pure cooldown wiring markdown parsing and attenuation insight rendering.
 - `write-gate.ts` — central approval gate for QDash write/operational tools.
 
 Prefer small modules with narrow responsibilities. Modules in this layer should
