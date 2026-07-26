@@ -71,6 +71,7 @@ See [Development Guide](./docs/DEVELOPMENT.md) for the fork workflow, local test
 
 ## Documentation
 
+- [Architecture](./docs/ARCHITECTURE.md)
 - [Tool Reference](./docs/tools.md)
 - [Commands & Skills](./docs/commands.md)
 - [Development Guide](./docs/DEVELOPMENT.md)

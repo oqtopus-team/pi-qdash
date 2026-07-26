@@ -95,7 +95,9 @@ Use this split when designing features:
 
 ### Extension/tool layer
 
-Use `extensions/qdash.ts` for safe, mechanical capabilities:
+See [Architecture](./ARCHITECTURE.md) for the module layout and refactor direction.
+
+Use `extensions/qdash.ts` and extracted modules under `extensions/lib/` for safe, mechanical capabilities:
 
 - QDash API access through `@oqtopus-team/qdash-client`
 - redaction and safety gates
@@ -124,6 +126,7 @@ Update docs with feature changes:
 - Tools: `docs/tools.md`
 - Commands and bundled skills: `docs/commands.md`
 - Contributor/development process: `docs/DEVELOPMENT.md` and `docs/CONTRIBUTING.md`
+- Architecture and refactor direction: `docs/ARCHITECTURE.md`
 - Agent-facing project policy: `AGENTS.md`
 
 ## Using pi to develop this repository
