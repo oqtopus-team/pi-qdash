@@ -26,6 +26,7 @@ Shared implementation modules live here:
 
 - `figure-analysis.ts` — pure read-only Plotly JSON summarization used by diagnostic tools.
 - `figures.ts` — figure download metadata, text summaries, and TUI image rendering helpers.
+- `forum-render.ts` — Forum payload extraction and compact list/detail text/TUI rendering helpers.
 - `links.ts` — QDash Web URL/link decoration helpers and safe non-secret config summaries.
 - `payload.ts` — common payload/list extraction and compact formatting helpers.
 - `render.ts` — shared ANSI/text box, wrapping, compact date/number, and simple TUI text component helpers.
