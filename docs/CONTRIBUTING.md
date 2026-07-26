@@ -20,7 +20,7 @@ If you have a new feature request, please create an issue following the [Feature
 
 ## Development
 
-See the [Development Guide](./DEVELOPMENT.md) for fork setup, local pi testing, and the extension-vs-skill design policy.
+See the [Development Guide](./DEVELOPMENT.md) for fork setup, local pi testing, and the extension-vs-skill design policy. See [Architecture](./ARCHITECTURE.md) for the extension module layout and refactor direction.
 
 Install dependencies and run the type check before submitting a pull request:
 

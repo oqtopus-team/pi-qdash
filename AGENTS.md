@@ -4,9 +4,10 @@ pi extension for querying QDash (https://github.com/oqtopus-team/qdash) via `@oq
 
 ## Layout
 
-- `extensions/qdash.ts`: the entire extension (tools, commands, TUI renderers)
+- `extensions/qdash.ts`: extension entry point (tools, commands, TUI renderers, shared context)
+- `extensions/lib/`: extracted helper modules for figure handling, figure analysis, write gates, and other shared logic
 - `skills/qdash/`, `skills/qdash-calibration-agent/`, `skills/qdash-two-qubit-calibration-diagnosis/`: skills bundled with the package
-- `docs/`: tool reference (`tools.md`), commands (`commands.md`), development guide (`DEVELOPMENT.md`), contributing guide
+- `docs/`: architecture (`ARCHITECTURE.md`), tool reference (`tools.md`), commands (`commands.md`), development guide (`DEVELOPMENT.md`), contributing guide
 
 ## Commands
 
@@ -28,6 +29,7 @@ To try changes locally: `pi -e .` from the repository root.
 - When changing contributor setup, fork workflow, local pi testing, or extension-vs-skill design policy, update `docs/DEVELOPMENT.md` and keep this `AGENTS.md` aligned.
 - Keep the extension/tool layer focused on safe QDash access, redaction, rendering, and mechanical read-only data extraction. Put domain-specific calibration interpretation, runbooks, thresholds, and known cases in skills so agent behavior can improve without turning tools into hidden decision engines.
 - For agentic diagnostics, prefer small read-only helper tools that expose structured evidence (for example Plotly figure summaries), then reference those tools from skills for workflow-specific reasoning.
+- Keep `extensions/qdash.ts` as a thin entry point over time. Move pure helpers and safety infrastructure into `extensions/lib/`; later split domain tool registrations into `extensions/tools/` modules as described in `docs/ARCHITECTURE.md`.
 
 ## Releases (tagpr)
 

@@ -5,8 +5,15 @@ import { homedir } from "node:os";
 
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { QDashClient, defaultConfigPath, type DownloadedFile, type TaskResultFigureOptions } from "@oqtopus-team/qdash-client";
-import { Image, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
+import { Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
+
+import { analyzePlotlyFigure, figureAnalysisText } from "./lib/figure-analysis.js";
+import { fetchFigureDetails, figureComponent, figureResultText, mediaTypeForPath, type FigureDetails } from "./lib/figures.js";
+import { qdashObjectLinks, qdashWebBaseUrl, qdashWebUrl, safeConfig, withQDashLinks } from "./lib/links.js";
+import { arrayFromPayload, compactItems, firstNumber, firstString, formatItem, payloadTotal, statusIcon } from "./lib/payload.js";
+import { toTextToolResult, toToolResult } from "./lib/results.js";
+import { installQDashWriteGate } from "./lib/write-gate.js";
 
 type QDashQueryParams = {
   profile?: string;
@@ -111,18 +118,6 @@ type ConfirmableParams = {
   confirmWrite?: boolean;
 };
 
-type FigureDetails = {
-  tool: string;
-  path: string;
-  mediaType: string;
-  sizeBytes: number;
-  base64?: string;
-  text?: string;
-  taskId?: string;
-  figurePaths?: string[];
-  jsonFigurePaths?: string[];
-};
-
 type QDashContextState = {
   profile?: string;
   chipId?: string;
@@ -136,17 +131,6 @@ type QDashContextState = {
 
 const CONTEXT_ENTRY_TYPE = "qdash-context";
 const GLOBAL_CONTEXT_PATH = join(homedir(), ".pi", "agent", "qdash-context.json");
-const WRITE_TOOL_NAMES = new Set([
-  "qdash_create_agent_session",
-  "qdash_submit_agent_action",
-  "qdash_commit_agent_candidate",
-  "qdash_execute_agent_action",
-  "qdash_commit_agent_campaign_candidates",
-  "qdash_apply_agent_candidate_commit",
-  "qdash_create_forum_post",
-  "qdash_update_forum_post",
-  "qdash_create_forum_evidence_reply",
-]);
 let currentContext: QDashContextState = {};
 
 function applyQDashContext<T extends { profile?: string; chipId?: string; sessionId?: string }>(params: T): T {
@@ -682,147 +666,11 @@ async function resolveCooldownWiring(params: CooldownWiringParams) {
   };
 }
 
-function qdashWebBaseUrl(client: QDashClient): string {
-  return client.config.baseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
-}
-
-function qdashWebUrl(client: QDashClient, path: string): string {
-  return `${qdashWebBaseUrl(client)}${path.startsWith("/") ? path : `/${path}`}`;
-}
-
-function qdashObjectLinks(client: QDashClient, object: Record<string, unknown>): Record<string, string> {
-  const links: Record<string, string> = {};
-  const taskId = firstString(object, ["task_id", "taskId"]);
-  const executionId = firstString(object, ["execution_id", "executionId"]);
-  const postId = firstString(object, ["post_id", "forum_post_id", "id"]);
-  const issueId = firstString(object, ["issue_id"]);
-  const sessionId = firstString(object, ["session_id", "sessionId"]);
-  if (taskId) links.task_result = qdashWebUrl(client, `/task-results/${encodeURIComponent(taskId)}`);
-  if (executionId) links.execution = qdashWebUrl(client, `/executions/${encodeURIComponent(executionId)}`);
-  if (postId) links.forum_post = qdashWebUrl(client, `/forum/posts/${encodeURIComponent(postId)}`);
-  if (issueId) links.issue = qdashWebUrl(client, `/issues/${encodeURIComponent(issueId)}`);
-  if (sessionId) links.agent_session = qdashWebUrl(client, `/agent-sessions/${encodeURIComponent(sessionId)}`);
-  return links;
-}
-
-function withQDashLinks(client: QDashClient, data: unknown): unknown {
-  if (!data || typeof data !== "object" || Array.isArray(data)) return data;
-  const object = data as Record<string, unknown>;
-  const links = qdashObjectLinks(client, object);
-  if (Object.keys(links).length === 0) return data;
-  return { ...object, _links: links };
-}
-
-function safeConfig(client: QDashClient, source: string) {
-  const config = client.config;
-  return {
-    source,
-    baseUrl: config.baseUrl,
-    projectId: config.projectId ?? null,
-    timeoutSeconds: config.timeoutSeconds,
-    verifyTls: config.verifyTls,
-    proxyConfigured: Boolean(config.proxy),
-    apiTokenConfigured: Boolean(config.apiToken),
-    cloudflareAccessConfigured: Boolean(config.cfAccessClientId || config.cfAccessClientSecret),
-    userAgent: config.userAgent,
-    retry: config.retry,
-  };
-}
-
-function redact(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(redact);
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>).map(([key, item]) => {
-        if (/token|password|secret|authorization|api[_-]?key/i.test(key)) return [key, "[redacted]"];
-        return [key, redact(item)];
-      }),
-    );
-  }
-  return value;
-}
-
-function toToolResult(data: unknown, details: Record<string, unknown> = {}) {
-  const safeData = redact(data);
-  let text = JSON.stringify(safeData, null, 2);
-  if (text.length > 20_000) text = `${text.slice(0, 20_000)}\n... [truncated]`;
-  return {
-    content: [{ type: "text" as const, text }],
-    details: { ...details, data: safeData },
-  };
-}
-
-function toTextToolResult(text: string, data: unknown, details: Record<string, unknown> = {}) {
-  const safeData = redact(data);
-  return {
-    content: [{ type: "text" as const, text }],
-    details: { ...details, data: safeData },
-  };
-}
-
 function configProfiles(configPath = defaultConfigPath()): { path: string; exists: boolean; profiles: string[] } {
   if (!existsSync(configPath)) return { path: configPath, exists: false, profiles: [] };
   const contents = readFileSync(configPath, "utf8");
   const profiles = [...contents.matchAll(/^\s*\[([^\]]+)]\s*$/gm)].map((m) => m[1]);
   return { path: configPath, exists: true, profiles };
-}
-
-function arrayFromPayload(payload: unknown): unknown[] {
-  if (Array.isArray(payload)) return payload;
-  if (payload && typeof payload === "object") {
-    const object = payload as Record<string, unknown>;
-    for (const key of ["items", "results", "data", "issues", "executions", "chips", "tasks", "insights"]) {
-      if (Array.isArray(object[key])) return object[key];
-    }
-  }
-  return [];
-}
-
-function compactItems(payload: unknown, keys: string[], limit: number): Record<string, unknown>[] {
-  return arrayFromPayload(payload).slice(0, limit).map((item) => {
-    if (!item || typeof item !== "object") return { value: item };
-    const object = item as Record<string, unknown>;
-    return Object.fromEntries(keys.filter((key) => key in object).map((key) => [key, object[key]]));
-  });
-}
-
-function payloadTotal(payload: unknown): number {
-  const fallback = arrayFromPayload(payload).length;
-  if (!payload || typeof payload !== "object") return fallback;
-  const object = payload as Record<string, unknown>;
-  for (const key of ["total", "total_count", "count", "total_items"]) {
-    const value = object[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-  }
-  return fallback;
-}
-
-function firstString(object: Record<string, unknown>, keys: string[]): string | undefined {
-  for (const key of keys) {
-    const value = object[key];
-    if (typeof value === "string" && value.length > 0) return value;
-    if (typeof value === "number" && Number.isFinite(value)) return String(value);
-  }
-  return undefined;
-}
-
-function statusIcon(status: string | undefined): string {
-  const normalized = status?.toLowerCase() ?? "";
-  if (["completed", "success", "succeeded", "active", "applied"].includes(normalized)) return "✓";
-  if (["failed", "error", "crashed"].includes(normalized)) return "✗";
-  if (["running", "pending", "queued", "in_progress"].includes(normalized)) return "…";
-  if (["cancelled", "canceled"].includes(normalized)) return "-";
-  return "•";
-}
-
-function formatItem(item: Record<string, unknown>, fallbackId: string): string {
-  const id = firstString(item, ["issue_id", "execution_id", "flow_run_id", "task_id", "id"]) ?? fallbackId;
-  const title = firstString(item, ["title", "task_name", "flow_name", "name"]);
-  const status = firstString(item, ["status", "execution_status", "activity_status"]);
-  const target = firstString(item, ["qid", "coupling_id"]);
-  return [statusIcon(status), shortId(id, 14), title, target ? `(${target})` : undefined, status ? `[${status}]` : undefined]
-    .filter(Boolean)
-    .join(" ");
 }
 
 async function buildDashboard(params: { profile?: string; configPath?: string; useEnv?: boolean; chipId?: string; limit?: number }) {
@@ -1732,14 +1580,6 @@ function forumPostTitle(post: Record<string, unknown>): string {
   return firstString(post, ["title", "subject", "summary"]) ?? firstString(post, ["content", "body", "text"])?.slice(0, 60) ?? "(untitled)";
 }
 
-function firstNumber(object: Record<string, unknown>, keys: string[]): number | undefined {
-  for (const key of keys) {
-    const value = object[key];
-    if (typeof value === "number" && Number.isFinite(value)) return value;
-  }
-  return undefined;
-}
-
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.length > 0) : [];
 }
@@ -2017,147 +1857,6 @@ function timeseriesPlotComponent(data: unknown, title: string, theme: Theme) {
   };
 }
 
-function mediaTypeForPath(path: string): string {
-  const lower = path.toLowerCase();
-  if (lower.endsWith(".png")) return "image/png";
-  if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
-  if (lower.endsWith(".gif")) return "image/gif";
-  if (lower.endsWith(".webp")) return "image/webp";
-  if (lower.endsWith(".json")) return "application/json";
-  return "application/octet-stream";
-}
-
-async function fetchFigureDetails(client: QDashClient, path: string): Promise<FigureDetails> {
-  const file = await client.getExecutionFigure(path);
-  const bytes = Buffer.from(file.data);
-  const mediaType = file.mediaType || mediaTypeForPath(path);
-  const details: FigureDetails = {
-    tool: "qdash_get_figure",
-    path,
-    mediaType,
-    sizeBytes: bytes.byteLength,
-  };
-  if (mediaType.startsWith("image/")) details.base64 = bytes.toString("base64");
-  else details.text = bytes.toString("utf8");
-  return details;
-}
-
-function figureResultText(details: FigureDetails): string {
-  const lines = boxed("QDash Figure", [
-    `path ${details.path}`,
-    `type ${details.mediaType}`,
-    `size ${details.sizeBytes} bytes`,
-    ...(details.taskId ? [`task ${details.taskId}`] : []),
-    ...(details.figurePaths?.length ? [`figures ${details.figurePaths.length}`] : []),
-    ...(details.jsonFigurePaths?.length ? [`json figures ${details.jsonFigurePaths.length}`] : []),
-    ...(details.text ? ["", ...details.text.split("\n").slice(0, 12).map((line) => `  ${line}`)] : []),
-  ]);
-  return lines.join("\n");
-}
-
-function figureComponent(details: FigureDetails, theme: Theme) {
-  if (details.base64 && details.mediaType.startsWith("image/")) {
-    return new Image(details.base64, details.mediaType, { fallbackColor: (text: string) => theme.fg("dim", text) }, { maxWidthCells: 90, maxHeightCells: 30 });
-  }
-  return textComponent(figureResultText(details).split("\n"), theme);
-}
-
-type PlotlyTrace = Record<string, unknown>;
-
-type FigureAnalysis = {
-  path: string;
-  taskId?: string;
-  traceCount: number;
-  summaries: string[];
-  warnings: string[];
-};
-
-function numericArray(value: unknown): number[] {
-  return Array.isArray(value) ? value.filter((item): item is number => typeof item === "number" && Number.isFinite(item)) : [];
-}
-
-function numericMatrix(value: unknown): number[][] {
-  return Array.isArray(value)
-    ? value.map((row) => numericArray(row)).filter((row) => row.length > 0)
-    : [];
-}
-
-function matrixValue(matrix: number[][], row: number, column: number): number | undefined {
-  return matrix[row]?.[column];
-}
-
-function compactStats(values: number[]): string {
-  if (!values.length) return "no numeric values";
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const mean = values.reduce((sum, value) => sum + value, 0) / values.length;
-  return `n=${values.length} min=${formatNumber(min)} max=${formatNumber(max)} mean=${formatNumber(mean)}`;
-}
-
-function formatMaybeNumber(value: number | undefined): string {
-  return typeof value === "number" && Number.isFinite(value) ? formatNumber(value) : "n/a";
-}
-
-function analyzePlotlyFigure(path: string, figure: unknown, taskId?: string): FigureAnalysis {
-  const object = figure && typeof figure === "object" ? figure as Record<string, unknown> : {};
-  const traces = Array.isArray(object.data) ? object.data.filter((trace): trace is PlotlyTrace => Boolean(trace) && typeof trace === "object") : [];
-  const summaries: string[] = [];
-  const warnings: string[] = [];
-
-  traces.forEach((trace, index) => {
-    const type = typeof trace.type === "string" ? trace.type : "unknown";
-    const name = typeof trace.name === "string" ? trace.name : `trace ${index}`;
-    if (type === "scatter" || Array.isArray(trace.y)) {
-      const y = numericArray(trace.y);
-      const x = numericArray(trace.x);
-      const err = trace.error_y && typeof trace.error_y === "object" ? (trace.error_y as Record<string, unknown>).value : undefined;
-      summaries.push(`${index}: scatter ${name} y(${compactStats(y)}) first=${formatMaybeNumber(y[0])} last=${formatMaybeNumber(y[y.length - 1])}${typeof err === "number" ? ` err=${formatNumber(err)}` : ""}`);
-      if (y.length >= 5) {
-        const tail = y.slice(Math.floor(y.length / 2));
-        const tailSpan = Math.max(...tail) - Math.min(...tail);
-        if (tailSpan > 0.4) warnings.push(`scatter ${name}: late repetitions still have large span ${formatNumber(tailSpan)}; repeated-pulse response may be unstable`);
-        const firstStep = Math.abs((y[1] ?? y[0]) - y[0]);
-        if (firstStep > 0.6 && Math.abs(y[y.length - 1]) > 0.1) warnings.push(`scatter ${name}: large first-step contrast but non-zero final offset ${formatNumber(y[y.length - 1])}`);
-      }
-      if (x.length && y.length && x.length !== y.length) warnings.push(`scatter ${name}: x/y length mismatch ${x.length}/${y.length}`);
-      return;
-    }
-
-    if (type === "heatmap" || Array.isArray(trace.z)) {
-      const z = numericMatrix(trace.z);
-      const flat = z.flat();
-      summaries.push(`${index}: heatmap ${z.length}x${z[0]?.length ?? 0} z(${compactStats(flat)})`);
-      if (z.length === 4 && z.every((row) => row.length === 4)) {
-        const diag = [0, 1, 2, 3].map((i) => z[i][i]);
-        const pop10 = diag[2];
-        const coh0011Re = matrixValue(z, 0, 3);
-        summaries.push(`   4x4 diag=[${diag.map(formatNumber).join(", ")}]  z00,11=${formatMaybeNumber(coh0011Re)}`);
-        if (pop10 > 0.15) warnings.push(`4x4 heatmap: |10> population/component is high (${formatNumber(pop10)}); suspect Bell/Zx angle, phase, or cancel error`);
-      }
-      return;
-    }
-
-    summaries.push(`${index}: ${type}`);
-  });
-
-  if (!traces.length) warnings.push("no Plotly data traces found");
-  return { path, taskId, traceCount: traces.length, summaries, warnings };
-}
-
-function figureAnalysisText(analysis: FigureAnalysis): string {
-  return boxed("QDash Figure Analysis", [
-    `path ${analysis.path}`,
-    ...(analysis.taskId ? [`task ${analysis.taskId}`] : []),
-    `traces ${analysis.traceCount}`,
-    "",
-    "Summaries",
-    ...analysis.summaries.map((line) => `  - ${line}`),
-    "",
-    "Warnings",
-    ...(analysis.warnings.length ? analysis.warnings.map((line) => `  - ${line}`) : ["  - none"]),
-  ]).join("\n");
-}
-
 async function executeQuery(params: QDashQueryParams) {
   params = applyQDashContext(params);
   const client = await makeClient(params);
@@ -2215,25 +1914,7 @@ async function executeQuery(params: QDashQueryParams) {
 }
 
 export default function qdashExtension(pi: ExtensionAPI) {
-  pi.on("tool_call", async (event, ctx) => {
-    if (!WRITE_TOOL_NAMES.has(event.toolName)) return;
-    const input = event.input as { confirmWrite?: boolean };
-    if (input.confirmWrite === true) return;
-
-    if (!ctx.hasUI) {
-      return {
-        block: true,
-        reason: `${event.toolName} is a QDash write operation and requires confirmWrite: true in non-interactive mode.`,
-      };
-    }
-
-    const ok = await ctx.ui.confirm(
-      "Approve QDash write operation?",
-      `${event.toolName} will create or modify data in QDash. Continue?`,
-    );
-    if (!ok) return { block: true, reason: "QDash write operation rejected by user" };
-    input.confirmWrite = true;
-  });
+  installQDashWriteGate(pi);
 
   pi.registerTool({
     name: "qdash_config_info",
