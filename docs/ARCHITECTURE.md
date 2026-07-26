@@ -30,6 +30,7 @@ Shared implementation modules live here:
 - `payload.ts` — common payload/list extraction and compact formatting helpers.
 - `render.ts` — shared ANSI/text box, wrapping, compact date/number, and simple TUI text component helpers.
 - `results.ts` — tool result formatting and secret redaction.
+- `timeseries-plot.ts` — task-result timeseries extraction and compact terminal plot rendering.
 - `wiring-analysis.ts` — pure cooldown wiring markdown parsing and attenuation insight rendering.
 - `write-gate.ts` — central approval gate for QDash write/operational tools.
 
