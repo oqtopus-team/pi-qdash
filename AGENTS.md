@@ -20,6 +20,7 @@ To try changes locally: `pi -e .` from the repository root.
 ## Conventions
 
 - Branch strategy: feature branches off `main`, squash-merged via pull request.
+- Never commit or push directly to `main`, even for docs or small fixes. If the current branch is `main`, create/switch to a feature branch before editing, committing, or pushing. Use a PR for all changes.
 - PR titles must follow Conventional Commits (`feat: ...`, `fix: ...`); they become the commit message on `main` and the changelog entry.
 - New tools must be read-only by default; write operations require the approval-gate pattern used by existing tools (`confirmWrite: true` in non-interactive runs).
 - Never print secrets (`api_token`, passwords, Cloudflare Access secrets) in tool output; follow the existing redaction helpers.

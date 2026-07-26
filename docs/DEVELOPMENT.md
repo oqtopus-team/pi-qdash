@@ -41,7 +41,7 @@ cd pi-qdash
 git remote add upstream https://github.com/oqtopus-team/pi-qdash.git
 ```
 
-3. Create a feature branch from the latest `main`:
+3. Create a feature branch from the latest `main` before editing or committing. Do not commit or push directly to `main`:
 
 ```bash
 git fetch upstream
