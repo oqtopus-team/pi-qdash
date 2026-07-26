@@ -28,6 +28,7 @@ Shared implementation modules live here:
 - `figures.ts` — figure download metadata, text summaries, and TUI image rendering helpers.
 - `links.ts` — QDash Web URL/link decoration helpers and safe non-secret config summaries.
 - `payload.ts` — common payload/list extraction and compact formatting helpers.
+- `render.ts` — shared ANSI/text box, wrapping, compact date/number, and simple TUI text component helpers.
 - `results.ts` — tool result formatting and secret redaction.
 - `wiring-analysis.ts` — pure cooldown wiring markdown parsing and attenuation insight rendering.
 - `write-gate.ts` — central approval gate for QDash write/operational tools.
