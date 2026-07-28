@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.4](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.3...v0.1.4) - 2026-07-28
+
+- Add QCal evidence builder by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/15
+
 ## [v0.1.3](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.2...v0.1.3) - 2026-07-26
 
 - docs: prohibit direct main commits by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/9
