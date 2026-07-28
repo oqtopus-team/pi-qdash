@@ -393,6 +393,58 @@ type TaskResultFigureFile = DownloadedFile & {
   jsonFigurePaths: string[];
 };
 
+type CalibrationEvidence = {
+  id?: string;
+  source: string;
+  target?: Record<string, unknown>;
+  task?: Record<string, unknown>;
+  metrics?: Record<string, number | string | boolean | null>;
+  parameters?: Record<string, number | string | boolean | null>;
+  resultJson?: unknown;
+  figures?: Array<Record<string, unknown>>;
+  logs?: string[];
+  notes?: string;
+  history?: Array<Record<string, unknown>>;
+};
+
+function parameterValueRecord(value: unknown): Record<string, number | string | boolean | null> {
+  const output: Record<string, number | string | boolean | null> = {};
+  const input = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  for (const [key, raw] of Object.entries(input)) {
+    const object = raw && typeof raw === "object" ? raw as Record<string, unknown> : undefined;
+    const candidate = object && "value" in object ? object.value : raw;
+    if (typeof candidate === "number" || typeof candidate === "string" || typeof candidate === "boolean" || candidate === null) output[key] = candidate;
+  }
+  return output;
+}
+
+function firstStringField(object: Record<string, unknown>, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = object[key];
+    if (typeof value === "string" && value) return value;
+  }
+  return undefined;
+}
+
+function qcalEvidenceText(evidence: CalibrationEvidence): string {
+  const metrics = Object.entries(evidence.metrics ?? {}).slice(0, 8).map(([key, value]) => `  - ${key}: ${String(value)}`);
+  const figures = evidence.figures ?? [];
+  return boxed("QDash QCal Evidence", [
+    `id ${evidence.id ?? "n/a"}`,
+    `source ${evidence.source}`,
+    `target ${evidence.target?.id ?? evidence.target?.couplingId ?? evidence.target?.qids ?? "n/a"}`,
+    `task ${evidence.task?.name ?? "n/a"} (${evidence.task?.status ?? "unknown"})`,
+    "",
+    "Metrics",
+    ...(metrics.length ? metrics : ["  - none"]),
+    "",
+    `Figures ${figures.length}`,
+    ...figures.map((figure, index) => `  - #${index + 1} ${String(figure.role ?? "plot")} ${String(figure.path ?? figure.url ?? "")}`),
+    "",
+    "Use qcal_evaluate_bundle with details.evidence to evaluate this evidence with pi-qcal.",
+  ]).join("\n");
+}
+
 function cleanQuery(values: Record<string, unknown> = {}): Record<string, unknown> {
   return Object.fromEntries(Object.entries(values).filter(([, value]) => value !== undefined && value !== null));
 }
@@ -2459,6 +2511,105 @@ export default function qdashExtension(pi: ExtensionAPI) {
       const figure = JSON.parse(text) as unknown;
       const analysis = analyzePlotlyFigure(path ?? "", figure, params.taskId);
       return toTextToolResult(figureAnalysisText(analysis), { analysis, figure: params.includeData ? figure : undefined }, { tool: "qdash_analyze_figure_json", path, data: analysis });
+    },
+  });
+
+  pi.registerTool({
+    name: "qdash_build_qcal_evidence",
+    label: "QDash Build QCal Evidence",
+    description: "Build a provider-neutral CalibrationEvidence bundle from a QDash task result for evaluation by pi-qcal.",
+    promptSnippet: "Convert QDash calibration task results into pi-qcal CalibrationEvidence",
+    promptGuidelines: [
+      "Use qdash_build_qcal_evidence before qcal_evaluate_bundle when the user asks to evaluate QDash calibration data with pi-qcal.",
+      "qdash_build_qcal_evidence is read-only and only converts QDash data into a generic evidence bundle; it does not evaluate, execute, commit, or apply calibration parameters.",
+      "After qdash_build_qcal_evidence, pass details.evidence to qcal_evaluate_bundle and treat the result as advisory evidence.",
+    ],
+    parameters: Type.Object({
+      ...connectionParams,
+      taskId: Type.String(),
+      includeFigures: Type.Optional(Type.Boolean({ description: "Embed task image figures as data URLs. Defaults to true." })),
+      includeFigureAnalysis: Type.Optional(Type.Boolean({ description: "Analyze Plotly JSON figures and include summaries/warnings in notes. Defaults to true." })),
+      maxFigures: Type.Optional(Type.Number({ description: "Maximum image figures to embed. Defaults to 1." })),
+      includeRawTaskResult: Type.Optional(Type.Boolean({ description: "Include the full raw task result in resultJson. Defaults to false." })),
+    }),
+    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; taskId: string; includeFigures?: boolean; includeFigureAnalysis?: boolean; maxFigures?: number; includeRawTaskResult?: boolean }) {
+      const client = await makeClient(params);
+      const task = await client.getTaskResult(params.taskId) as unknown as Record<string, unknown>;
+      const figures: Array<Record<string, unknown>> = [];
+      const notes: string[] = [];
+      const figurePaths = Array.isArray(task.figure_path) ? task.figure_path.filter((item): item is string => typeof item === "string") : [];
+      const jsonFigurePaths = Array.isArray(task.json_figure_path) ? task.json_figure_path.filter((item): item is string => typeof item === "string") : [];
+
+      if (params.includeFigureAnalysis !== false) {
+        const limit = Math.min(jsonFigurePaths.length, params.maxFigures ?? 1);
+        for (let index = 0; index < limit; index += 1) {
+          try {
+            const file: TaskResultFigureFile = await client.getTaskResultFigure(params.taskId, { index, preferJson: true });
+            const figure = JSON.parse(Buffer.from(file.data).toString("utf8")) as unknown;
+            const analysis = analyzePlotlyFigure(file.path ?? jsonFigurePaths[index] ?? "", figure, params.taskId);
+            notes.push(`Figure JSON analysis #${index + 1}:`, ...analysis.summaries.map((line) => `- ${line}`));
+            if (analysis.warnings.length) notes.push("Warnings:", ...analysis.warnings.map((line) => `- ${line}`));
+            figures.push({ path: file.path ?? jsonFigurePaths[index], role: "plotly", data: figure });
+          } catch (error) {
+            notes.push(`Figure JSON analysis #${index + 1} failed: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+      }
+
+      if (params.includeFigures !== false) {
+        const limit = Math.min(figurePaths.length, params.maxFigures ?? 1);
+        for (let index = 0; index < limit; index += 1) {
+          try {
+            const file: TaskResultFigureFile = await client.getTaskResultFigure(params.taskId, { index, preferJson: false });
+            const bytes = Buffer.from(file.data);
+            const mediaType = file.mediaType || mediaTypeForPath(file.path ?? figurePaths[index] ?? "");
+            if (mediaType.startsWith("image/")) {
+              figures.push({ path: file.path ?? figurePaths[index], url: `data:${mediaType};base64,${bytes.toString("base64")}`, mimeType: mediaType, role: "plot" });
+            }
+          } catch (error) {
+            notes.push(`Figure image #${index + 1} embedding failed: ${error instanceof Error ? error.message : String(error)}`);
+          }
+        }
+      }
+
+      const couplingId = firstStringField(task, ["coupling_id", "couplingId", "qid"]);
+      const qid = firstStringField(task, ["qid"]);
+      const evidence: CalibrationEvidence = {
+        id: params.taskId,
+        source: "external",
+        target: {
+          kind: couplingId && couplingId.includes("-") ? "coupling" : qid ? "qubit" : "system",
+          id: couplingId ?? qid,
+          couplingId: couplingId && couplingId.includes("-") ? couplingId : undefined,
+          qids: qid && !qid.includes("-") ? [qid] : undefined,
+          chipId: firstStringField(task, ["chip_id", "chipId"]),
+        },
+        task: {
+          name: firstStringField(task, ["task_name", "taskName", "name"]),
+          objective: `Evaluate QDash calibration task ${firstStringField(task, ["task_name", "taskName", "name"]) ?? params.taskId}`,
+          backend: firstStringField(task, ["backend", "chip_id", "chipId"]),
+          startedAt: firstStringField(task, ["start_at", "startAt"]),
+          completedAt: firstStringField(task, ["end_at", "endAt"]),
+          status: firstStringField(task, ["status"]),
+        },
+        metrics: parameterValueRecord(task.output_parameters),
+        parameters: { ...parameterValueRecord(task.input_parameters), ...parameterValueRecord(task.run_parameters) },
+        figures: figures.length ? figures : undefined,
+        notes: [
+          typeof task.message === "string" ? `Task message: ${task.message}` : undefined,
+          notes.length ? notes.join("\n") : undefined,
+        ].filter(Boolean).join("\n\n") || undefined,
+        resultJson: params.includeRawTaskResult ? task : {
+          task_id: task.task_id,
+          execution_id: task.execution_id,
+          flow_name: task.flow_name,
+          figure_path: figurePaths,
+          json_figure_path: jsonFigurePaths,
+          links: task._links,
+        },
+      };
+
+      return toTextToolResult(qcalEvidenceText(evidence), { evidence }, { tool: "qdash_build_qcal_evidence", taskId: params.taskId, evidence });
     },
   });
 
