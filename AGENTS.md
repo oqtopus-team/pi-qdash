@@ -5,7 +5,8 @@ pi extension for querying QDash (https://github.com/oqtopus-team/qdash) via `@oq
 ## Layout
 
 - `extensions/qdash.ts`: extension entry point (tools, commands, TUI renderers, shared context)
-- `extensions/lib/`: extracted helper modules for figure handling, figure analysis, write gates, and other shared logic
+- `extensions/lib/`: extracted helper modules for figure handling, figure/timeseries analysis, write gates, and other shared logic
+- `extensions/tools/`: domain-specific tool registration modules extracted from the entry point
 - `skills/qdash/`, `skills/qdash-calibration-agent/`, `skills/qdash-two-qubit-calibration-diagnosis/`: skills bundled with the package
 - `docs/`: architecture (`ARCHITECTURE.md`), tool reference (`tools.md`), commands (`commands.md`), development guide (`DEVELOPMENT.md`), contributing guide
 
@@ -13,7 +14,8 @@ pi extension for querying QDash (https://github.com/oqtopus-team/qdash) via `@oq
 
 ```bash
 npm install     # install dependencies
-npm run check   # type check (tsc --noEmit); run before committing
+npm test        # run pure helper tests
+npm run check   # type check (tsc --noEmit); run both tests/check before committing
 ```
 
 To try changes locally: `pi -e .` from the repository root.

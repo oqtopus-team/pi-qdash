@@ -11,12 +11,14 @@ import { Type } from "typebox";
 import { analyzePlotlyFigure, figureAnalysisText } from "./lib/figure-analysis.js";
 import { fetchFigureDetails, figureComponent, figureResultText, mediaTypeForPath, type FigureDetails } from "./lib/figures.js";
 import { forumDetailComponent, forumDetailLines, forumListLines, forumPostTitle, forumPostsFromPayload } from "./lib/forum-render.js";
+import { investigationContextSummary, validateInvestigationContext, type TimeseriesInvestigationContext } from "./lib/investigation-context.js";
 import { qdashObjectLinks, qdashWebBaseUrl, qdashWebUrl, safeConfig, withQDashLinks } from "./lib/links.js";
 import { arrayFromPayload, compactItems, firstNumber, firstString, formatItem, payloadTotal, statusIcon } from "./lib/payload.js";
 import { toTextToolResult, toToolResult } from "./lib/results.js";
 import { ansi, boxLinesToWidth, boxed, formatNumber, textComponent } from "./lib/render.js";
 import { plotSeriesLines, timeseriesPlotComponent, timeseriesPoints } from "./lib/timeseries-plot.js";
 import { installQDashWriteGate } from "./lib/write-gate.js";
+import { registerTimeseriesComparisonTool } from "./tools/timeseries.js";
 import { analyzeWiringMarkdown, wiringInsightLines, type WiringInsights } from "./lib/wiring-analysis.js";
 
 type QDashQueryParams = {
@@ -131,6 +133,7 @@ type QDashContextState = {
   taskName?: string;
   lastExecutionId?: string;
   lastTaskId?: string;
+  investigation?: TimeseriesInvestigationContext;
 };
 
 const CONTEXT_ENTRY_TYPE = "qdash-context";
@@ -151,7 +154,8 @@ function contextSummary(): string {
   const chip = currentContext.chipId ?? "auto-chip";
   const session = currentContext.agentSessionId ? ` session:${shortId(currentContext.agentSessionId)}` : "";
   const target = currentContext.qid ? ` q${currentContext.qid}` : currentContext.couplingId ? ` c${currentContext.couplingId}` : "";
-  return `qdash ${profile} ${chip}${target}${session}`;
+  const investigation = currentContext.investigation?.name ? ` investigation:${currentContext.investigation.name}` : "";
+  return `qdash ${profile} ${chip}${target}${session}${investigation}`;
 }
 
 function contextStatusLine(theme?: Theme): string {
@@ -179,8 +183,16 @@ function contextStatusLine(theme?: Theme): string {
 function isQDashContextState(value: unknown): value is QDashContextState {
   if (!value || typeof value !== "object") return false;
   const context = value as QDashContextState;
-  return [context.profile, context.chipId, context.agentSessionId, context.qid, context.couplingId, context.taskName, context.lastExecutionId, context.lastTaskId]
+  const stringsValid = [context.profile, context.chipId, context.agentSessionId, context.qid, context.couplingId, context.taskName, context.lastExecutionId, context.lastTaskId]
     .every((item) => item === undefined || typeof item === "string");
+  if (!stringsValid) return false;
+  if (context.investigation === undefined) return true;
+  try {
+    validateInvestigationContext(context.investigation);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function loadGlobalContext(): QDashContextState {
@@ -194,8 +206,9 @@ function loadGlobalContext(): QDashContextState {
 }
 
 function saveGlobalContext(context: QDashContextState): void {
+  const { investigation: _investigation, ...globalContext } = context;
   mkdirSync(dirname(GLOBAL_CONTEXT_PATH), { recursive: true });
-  writeFileSync(GLOBAL_CONTEXT_PATH, `${JSON.stringify(context, null, 2)}\n`, "utf8");
+  writeFileSync(GLOBAL_CONTEXT_PATH, `${JSON.stringify(globalContext, null, 2)}\n`, "utf8");
 }
 
 function adoptContextFromToolInput(input: unknown): boolean {
@@ -1728,6 +1741,12 @@ export default function qdashExtension(pi: ExtensionAPI) {
     },
   });
 
+  registerTimeseriesComparisonTool(pi, {
+    makeClient,
+    defaultChipId,
+    investigationContext: () => currentContext.investigation,
+  });
+
   registerQueryTool({
     name: "qdash_list_task_results",
     label: "QDash List Task Results",
@@ -3067,8 +3086,49 @@ export default function qdashExtension(pi: ExtensionAPI) {
     },
   });
 
+  pi.registerCommand("qdash-investigation-setup", {
+    description: "Create or edit a reusable generic timeseries investigation context; accepts optional JSON",
+    handler: async (args, ctx) => {
+      const template: TimeseriesInvestigationContext = currentContext.investigation ?? {
+        name: "timeseries-investigation",
+        timezoneOffsetMinutes: 540,
+        qdashSeries: currentContext.qid ? [
+          { parameter: "metric_a", qid: currentContext.qid },
+          { parameter: "metric_b", qid: currentContext.qid },
+        ] : [
+          { parameter: "metric_a" },
+          { parameter: "metric_b" },
+        ],
+        analysis: { resampleMinutes: 1, detrend: "none", normalize: "none" },
+      };
+      const source = args.trim() || await ctx.ui.editor("QDash investigation context (JSON)", JSON.stringify(template, null, 2));
+      if (!source) return;
+      try {
+        const investigation = validateInvestigationContext(JSON.parse(source));
+        currentContext = { ...currentContext, investigation };
+        persistContext();
+        refreshContextUi(ctx);
+        ctx.ui.setWidget("qdash", ["QDash Investigation", investigationContextSummary(investigation)]);
+        ctx.ui.notify(`Investigation context saved: ${investigationContextSummary(investigation)}`, "info");
+      } catch (error) {
+        ctx.ui.notify(`Invalid investigation context: ${error instanceof Error ? error.message : String(error)}`, "error");
+      }
+    },
+  });
+
+  pi.registerCommand("qdash-clear-investigation", {
+    description: "Clear the reusable timeseries investigation context without changing profile/chip context",
+    handler: async (_args, ctx) => {
+      const { investigation: _investigation, ...rest } = currentContext;
+      currentContext = rest;
+      persistContext();
+      refreshContextUi(ctx);
+      ctx.ui.notify("QDash investigation context cleared", "info");
+    },
+  });
+
   pi.registerCommand("qdash-clear-context", {
-    description: "Clear the current QDash profile/chip/agent-session context",
+    description: "Clear the current QDash profile/chip/agent-session/investigation context",
     handler: async (_args, ctx) => {
       currentContext = {};
       persistContext();
@@ -3180,6 +3240,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
         `last execution ${currentContext.lastExecutionId ?? "none"}`,
         `last task ${currentContext.lastTaskId ?? "none"}`,
         `agent session ${currentContext.agentSessionId ?? "none"}`,
+        `investigation ${currentContext.investigation ? investigationContextSummary(currentContext.investigation) : "none"}`,
       ]);
       ctx.ui.notify(contextSummary(), "info");
     },

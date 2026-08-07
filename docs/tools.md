@@ -13,7 +13,7 @@ session profile/chip context when their parameters are omitted.
 - `qdash_get_chip_metrics`, `qdash_list_chip_qubits`, `qdash_list_chip_couplings`
 - `qdash_list_cryostats`, `qdash_list_cooldowns`
 - `qdash_get_cooldown_wiring`, `qdash_wiring_insights`, `qdash_list_cooldown_wiring_events`
-- `qdash_get_timeseries`, `qdash_plot_timeseries`
+- `qdash_get_timeseries`, `qdash_plot_timeseries`, `qdash_inspect_timeseries_csv`, `qdash_compare_timeseries`
 - `qdash_list_task_results`, `qdash_get_task_result`
 - `qdash_list_issues`
 - `qdash_list_flows`, `qdash_get_flow`
@@ -29,6 +29,25 @@ focuses on those insights: it parses the wiring table, totals control/readout
 attenuation, highlights unusual totals, and maps control-port anomalies to
 qubits using the MUX×4 convention. Raw BlockNote blocks and wiring checkpoint
 history are opt-in to keep the normal response focused.
+
+`qdash_inspect_timeseries_csv` profiles an explicitly selected local CSV before
+comparison: headers, row count, numeric coverage/ranges/samples, and optional
+timestamp validity/range/cadence. It does not guess a timezone or upload data.
+
+`qdash_compare_timeseries` is a generic read-only comparison helper. It can
+combine any number of QDash task-result parameters/targets with numeric columns
+from one or more local CSV files. CSV schema, exact-match row filters, timestamp
+format, timezone offset, units, scale, and offset are supplied by the caller;
+no metric, target, sensor name, or timezone is hard-coded. It aligns series on
+a bounded common grid and reports pairwise correlations, optional smoothing,
+linear detrending, z-score normalization, and an optional shared-period
+sinusoidal fit with phase differences and explained fractions. The output
+always warns that correlation/shared periodicity do not prove causality and
+that short or smoothed records reduce statistical independence. Local CSV
+inputs are limited to 10 MB each and are never uploaded. Missing comparison
+arguments can be supplied by the schema-validated session preset created with
+`/qdash-investigation-setup`; explicit tool arguments always take precedence,
+and `useInvestigationContext: false` disables the preset for one call.
 
 ## Overview and insight tools
 

@@ -15,7 +15,7 @@ Use the pi-qdash tools instead of scraping the UI or hand-writing auth headers.
    - `qdash_get_chip_metrics`, `qdash_list_chip_qubits`, `qdash_list_chip_couplings`
    - `qdash_list_cryostats`, `qdash_list_cooldowns`
    - `qdash_get_cooldown_wiring`, `qdash_wiring_insights`, `qdash_list_cooldown_wiring_events`
-   - `qdash_get_timeseries`, `qdash_plot_timeseries`
+   - `qdash_get_timeseries`, `qdash_plot_timeseries`, `qdash_inspect_timeseries_csv`, `qdash_compare_timeseries`
    - `qdash_list_task_results`, `qdash_get_task_result`
    - `qdash_list_issues`
    - `qdash_list_flows`, `qdash_get_flow`
@@ -64,6 +64,8 @@ Use these commands to make pi behave like a QDash-specific harness with persiste
 /qdash-use-chip [chip_id]
 /qdash-use-target qid <qid> | coupling <coupling_id>
 /qdash-use-agent-session <session_id>
+/qdash-investigation-setup [json]
+/qdash-clear-investigation
 /qdash-context
 /qdash-dashboard [limit]
 /qdash-wiring-insights
@@ -72,6 +74,29 @@ Use these commands to make pi behave like a QDash-specific harness with persiste
 ```
 
 Prefer the current context when the user has already selected a profile/chip/session. Tools use that context when parameters are omitted.
+
+## Generic timeseries comparison
+
+Use `qdash_compare_timeseries` when the investigation needs to align multiple
+QDash metrics/targets, local CSV sensor logs, or both. For repeated calls, use
+`/qdash-investigation-setup` to store the arbitrary series mappings, window,
+timezone, and transform defaults; explicit tool arguments override the preset.
+Do not assume a specific
+CSV layout, metric name, target, unit, timestamp format, or timezone:
+
+1. Inspect unknown CSV headers, numeric coverage, and optional time cadence with
+   `qdash_inspect_timeseries_csv` first.
+2. Supply `timeColumn`, one or more `valueColumns`, and optional exact-match
+   `filters`; use `scale`/`offset` only for explicit unit conversion.
+3. For timestamps without a zone, require an explicit
+   `timezoneOffsetMinutes` (JST is `540`) rather than relying on the host clock.
+4. Start with raw/no-transform comparison, then state any smoothing,
+   interpolation, detrending, normalization, and period-search settings.
+5. Report overlap duration, source point counts, aligned point count, number of
+   observed cycles, correlations, phases, and explained fractions together.
+6. Treat correlation and shared periodicity as evidence of association. Do not
+   claim direct causality without intervention, longer observation, or evidence
+   that excludes a common driver.
 
 For cryostat wiring requests, start with `qdash_get_cooldown_wiring`. Pass `cooldownId` when the user names one; otherwise pass `cryoId`, or omit both to resolve the active/newest cooldown from the current/default chip. Prefer the compact `wiring.markdown`; request raw blocks only when structural or embedded BlockNote data is necessary, and request history when investigating wiring changes. Set `includeInsights` or call `qdash_wiring_insights` when the user asks what is characteristic, unusual, or worth checking in attenuation; summarize control/readout totals and affected qubits/MUXes instead of dumping the raw table.
 
