@@ -24,6 +24,7 @@ Use the pi-qdash tools instead of scraping the UI or hand-writing auth headers.
    - `qdash_list_forum_posts`, `qdash_get_forum_post`, `qdash_list_forum_replies`
    - `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`, `qdash_analyze_figure_json`, `qdash_build_qcal_evidence`
    - `qdash_create_forum_evidence_reply` for confirmed evidence curation replies with visible task figures
+   - `qdash_preview_forum_image_reply`, then `qdash_create_forum_image_reply` for confirmed uploads of locally generated analysis images
 3. Use harness overview tools for status and triage:
    - `qdash_investigate` for natural-language requests to investigate or compare recent calibration, target history, figures, failures, issues, and Forum context
    - `qdash_compare_calibration` for read-only before/after comparison of repeated target calibration results
@@ -119,10 +120,11 @@ When the user wants to preserve an investigated observation in QDash forum/notes
 2. Summarize the observation as evidence, not as an automatic calibration decision.
 3. Prefer replying to an existing target/coupling forum thread when one exists.
 4. Use `qdash_create_forum_evidence_reply` for task-result evidence so figures are embedded as QDash UI image blocks (`/api/executions/figure?path=...`) and visible in the forum.
-5. Include task and execution QDash Web URLs in the reply.
-6. When mentioning history or trends, include links to representative historical task results.
-7. Mark agent-authored evidence with a footer such as `— 🤖 by pi-qdash`.
-8. Ask for confirmation before creating/updating the forum post.
+5. For locally generated analysis images, call `qdash_preview_forum_image_reply` first, show the exact paths and reply text, then use `qdash_create_forum_image_reply` only after explicit confirmation. Supported images are PNG, JPEG, GIF, and WebP up to 5 MB each.
+6. Include task and execution QDash Web URLs in the reply when applicable.
+7. When mentioning history or trends, include links to representative historical task results.
+8. Mark agent-authored evidence with a footer such as `— 🤖 by pi-qdash`.
+9. Ask for confirmation before uploading images or creating/updating the forum post.
 
 ## Safety
 

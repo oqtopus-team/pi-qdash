@@ -21,7 +21,7 @@ It uses [`@oqtopus-team/qdash-client`](https://www.npmjs.com/package/@oqtopus-te
 - **Agent calibration workflow**: create agent sessions, submit and track agent actions, and commit/apply calibration candidates. Write operations are approval-gated.
 - **Figures**: fetch calibration PNG/JSON figures and render them in the interactive TUI.
 - **Generic timeseries comparison**: inspect and align arbitrary QDash parameters/targets with explicitly mapped local CSV sensor columns, reuse schema-validated investigation presets, and report correlations plus optional shared-period/phase evidence without hard-coded metrics or schemas.
-- **Forum integration**: read Forum posts and publish evidence replies built from task results.
+- **Forum integration**: read Forum posts, publish task-result evidence, and upload locally generated analysis images to replies.
 
 ## Installation
 
