@@ -17,6 +17,7 @@ import { toTextToolResult, toToolResult } from "./lib/results.js";
 import { ansi, boxLinesToWidth, boxed, formatNumber, textComponent } from "./lib/render.js";
 import { plotSeriesLines, timeseriesPlotComponent, timeseriesPoints } from "./lib/timeseries-plot.js";
 import { installQDashWriteGate } from "./lib/write-gate.js";
+import { registerTimeseriesComparisonTool } from "./tools/timeseries.js";
 import { analyzeWiringMarkdown, wiringInsightLines, type WiringInsights } from "./lib/wiring-analysis.js";
 
 type QDashQueryParams = {
@@ -1727,6 +1728,8 @@ export default function qdashExtension(pi: ExtensionAPI) {
       return timeseriesPlotComponent(details?.data, title, theme);
     },
   });
+
+  registerTimeseriesComparisonTool(pi, { makeClient, defaultChipId });
 
   registerQueryTool({
     name: "qdash_list_task_results",

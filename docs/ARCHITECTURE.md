@@ -32,6 +32,7 @@ Shared implementation modules live here:
 - `render.ts` — shared ANSI/text box, wrapping, compact date/number, and simple TUI text component helpers.
 - `results.ts` — tool result formatting and secret redaction.
 - `timeseries-plot.ts` — task-result timeseries extraction and compact terminal plot rendering.
+- `timeseries-analysis.ts` — generic CSV mapping, time alignment, transforms, correlation, and shared-period fitting.
 - `wiring-analysis.ts` — pure cooldown wiring markdown parsing and attenuation insight rendering.
 - `write-gate.ts` — central approval gate for QDash write/operational tools.
 
@@ -39,6 +40,10 @@ Prefer small modules with narrow responsibilities. Modules in this layer should
 not encode calibration policy beyond mechanical extraction/safety checks.
 
 ### Tool layer
+
+Domain-specific tool registration modules may live under `extensions/tools/`.
+`extensions/tools/timeseries.ts` registers generic QDash/local-CSV timeseries
+comparison while delegating pure alignment/statistics to `extensions/lib/`.
 
 Tools should expose capabilities and structured evidence:
 
@@ -73,7 +78,8 @@ incremental and behavior-preserving:
 1. Move pure helper logic into `extensions/lib/`.
 2. Keep safety-sensitive gates centralized.
 3. Move figure and analysis helpers out of the entry point.
-4. Later, split tool registration by domain:
+4. Continue splitting tool registration by domain (timeseries is already
+   extracted):
    - `extensions/tools/figures.ts`
    - `extensions/tools/tasks.ts`
    - `extensions/tools/agent.ts`

@@ -50,10 +50,11 @@ git merge --ff-only upstream/main
 git switch -c feat/<short-description>
 ```
 
-4. Install dependencies and type-check:
+4. Install dependencies, run tests, and type-check:
 
 ```bash
 npm install
+npm test
 npm run check
 ```
 
@@ -84,7 +85,7 @@ git push -u origin feat/<short-description>
 ## PR expectations
 
 - PR titles must follow Conventional Commits, e.g. `feat: add qdash target report` or `docs: add development guide`.
-- Run `npm run check` before opening a PR.
+- Run `npm test` and `npm run check` before opening a PR.
 - Do not bump `package.json` / `package-lock.json` versions.
 - Do not edit `CHANGELOG.md`.
 - Do not create release tags. Releases are handled by tagpr.

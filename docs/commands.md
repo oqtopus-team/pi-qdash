@@ -36,3 +36,4 @@ The package also provides skills:
 - `/skill:qdash`: guides pi to choose the right QDash tools, avoid exposing secrets, and prefer read-only operations
 - `/skill:qdash-calibration-agent`: guides pi through confirmation-gated calibration execution workflows
 - `/skill:qdash-two-qubit-calibration-diagnosis`: diagnoses two-qubit calibration quality from read-only evidence
+- `/skill:qdash-timeseries-diagnosis`: investigates generic multi-metric drift, shared periodicity, phase, and environmental sensor coupling without hard-coded metrics or CSV schemas
