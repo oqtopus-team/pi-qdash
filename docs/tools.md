@@ -20,6 +20,7 @@ session profile/chip context when their parameters are omitted.
 - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions`
 - `qdash_list_ai_reviews`, `qdash_get_provenance_stats`
 - `qdash_list_forum_posts`, `qdash_get_forum_post`, `qdash_list_forum_replies`
+- `qdash_preview_forum_evidence_reply`, `qdash_preview_forum_image_reply`
 - `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`, `qdash_analyze_figure_json`, `qdash_build_qcal_evidence`
 
 `qdash_get_cooldown_wiring` resolves the active/newest cooldown automatically
@@ -94,11 +95,13 @@ figure summaries, and optional embedded figure images into a provider-neutral
 
 Forum evidence can be previewed read-only with
 `qdash_preview_forum_evidence_reply`, then published through
-confirmation-gated `qdash_create_forum_evidence_reply`; other forum writes
-include `qdash_create_forum_post` and `qdash_update_forum_post`. The
-evidence-reply helper builds a markdown reply from a task result, embeds
-figures so they are visible in the forum, links recent same-task history, and
-marks the reply with `— 🤖 by pi-qdash`.
+confirmation-gated `qdash_create_forum_evidence_reply`. Locally generated PNG,
+JPEG, GIF, or WebP analysis images can be checked with
+`qdash_preview_forum_image_reply`, then uploaded and embedded with
+confirmation-gated `qdash_create_forum_image_reply` (up to eight images, 5 MB
+each). Other forum writes include `qdash_create_forum_post` and
+`qdash_update_forum_post`. The evidence helpers build markdown replies, keep
+figures visible in the forum, and mark replies with `— 🤖 by pi-qdash`.
 
 ## Fallback tools
 

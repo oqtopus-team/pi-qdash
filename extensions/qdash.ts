@@ -10,6 +10,7 @@ import { Type } from "typebox";
 
 import { analyzePlotlyFigure, figureAnalysisText } from "./lib/figure-analysis.js";
 import { fetchFigureDetails, figureComponent, figureResultText, mediaTypeForPath, type FigureDetails } from "./lib/figures.js";
+import { forumImageReplyContent, forumImageReplyPreview, loadLocalForumImages, type LocalForumImage } from "./lib/forum-images.js";
 import { forumDetailComponent, forumDetailLines, forumListLines, forumPostTitle, forumPostsFromPayload } from "./lib/forum-render.js";
 import { investigationContextSummary, validateInvestigationContext, type TimeseriesInvestigationContext } from "./lib/investigation-context.js";
 import { qdashObjectLinks, qdashWebBaseUrl, qdashWebUrl, safeConfig, withQDashLinks } from "./lib/links.js";
@@ -1353,6 +1354,56 @@ function taskFigurePaths(task: Record<string, unknown>, maxFigures: number): str
   return Array.isArray(paths) ? paths.filter((item): item is string => typeof item === "string").slice(0, maxFigures) : [];
 }
 
+type ForumImageReplyParams = {
+  parentPostId: string;
+  imagePaths: string[];
+  interpretation: string;
+  title?: string;
+};
+
+type PreparedForumImageReply = {
+  parent: Record<string, unknown>;
+  images: LocalForumImage[];
+  title: string;
+  preview: string;
+};
+
+async function prepareForumImageReply(client: QDashClient, params: ForumImageReplyParams): Promise<PreparedForumImageReply> {
+  const parent = await client.getForumPost(params.parentPostId) as unknown as Record<string, unknown>;
+  const images = loadLocalForumImages(params.imagePaths);
+  const title = params.title ?? `${new Date().toISOString().slice(0, 10)} 追加分析画像`;
+  const preview = forumImageReplyPreview(title, images, params.interpretation);
+  return { parent, images, title, preview };
+}
+
+async function createForumImageReply(client: QDashClient, params: ForumImageReplyParams, prepared: PreparedForumImageReply) {
+  const uploaded = [];
+  for (const image of prepared.images) {
+    const result = await client.uploadForumImage(image.blob, image.filename);
+    uploaded.push({ ...image, url: result.url });
+  }
+  const content = forumImageReplyContent(prepared.title, uploaded, params.interpretation);
+  const parent = prepared.parent;
+  const request = {
+    category: firstString(parent, ["category"]) ?? "other",
+    title: null,
+    content,
+    content_blocks: [],
+    parent_id: params.parentPostId,
+    chip_id: firstString(parent, ["chip_id", "chipId"]),
+    target_type: firstString(parent, ["target_type", "targetType"]),
+    target_id: firstString(parent, ["target_id", "targetId"]),
+    cooldown_id: firstString(parent, ["cooldown_id", "cooldownId"]),
+    status: firstString(parent, ["status"]) ?? "open",
+  };
+  const reply = await client.createForumPost(request as never);
+  return {
+    reply,
+    content,
+    images: uploaded.map(({ blob: _blob, ...image }) => image),
+  };
+}
+
 async function buildForumEvidenceReply(client: QDashClient, params: ForumEvidenceReplyParams) {
   const [parent, task] = await Promise.all([
     client.getForumPost(params.parentPostId) as unknown as Promise<Record<string, unknown>>,
@@ -2255,6 +2306,65 @@ export default function qdashExtension(pi: ExtensionAPI) {
       const client = await makeClient(params);
       const built = await buildForumEvidenceReply(client, params);
       return toTextToolResult(built.preview, { preview: built.preview, parent: built.parent, task: built.task, figures: built.figures }, { tool: "qdash_preview_forum_evidence_reply" });
+    },
+  });
+
+  pi.registerTool({
+    name: "qdash_preview_forum_image_reply",
+    label: "QDash Preview Forum Image Reply",
+    description: "Preview a QDash forum reply that will upload and embed locally generated analysis images. Read-only; no image or post is created.",
+    promptSnippet: "Preview local analysis images and forum reply content before uploading",
+    promptGuidelines: [
+      "Use qdash_preview_forum_image_reply before uploading locally generated analysis images to a forum thread.",
+      "Show the image paths and reply content, then require explicit confirmation before publishing.",
+    ],
+    parameters: Type.Object({
+      ...connectionParams,
+      parentPostId: Type.String(),
+      imagePaths: Type.Array(Type.String(), { minItems: 1, maxItems: 8 }),
+      interpretation: Type.String({ description: "Human-readable interpretation or context shown after the images." }),
+      title: Type.Optional(Type.String()),
+    }),
+    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; parentPostId: string; imagePaths: string[]; interpretation: string; title?: string }) {
+      const client = await makeClient(params);
+      const prepared = await prepareForumImageReply(client, params);
+      return toTextToolResult(prepared.preview, {
+        preview: prepared.preview,
+        parent: prepared.parent,
+        images: prepared.images.map(({ blob: _blob, ...image }) => image),
+      }, { tool: "qdash_preview_forum_image_reply" });
+    },
+  });
+
+  pi.registerTool({
+    name: "qdash_create_forum_image_reply",
+    label: "QDash Create Forum Image Reply",
+    description: "Upload locally generated analysis images and create a QDash forum reply embedding them. This is a write operation and requires confirmation.",
+    promptSnippet: "Upload local analysis images and create a forum reply after explicit confirmation",
+    promptGuidelines: [
+      "Use qdash_create_forum_image_reply only after previewing the exact image paths and reply content with qdash_preview_forum_image_reply.",
+      "Require explicit confirmation before uploading images or creating the reply.",
+    ],
+    parameters: Type.Object({
+      ...connectionParams,
+      parentPostId: Type.String(),
+      imagePaths: Type.Array(Type.String(), { minItems: 1, maxItems: 8 }),
+      interpretation: Type.String({ description: "Human-readable interpretation or context shown after the images." }),
+      title: Type.Optional(Type.String()),
+      confirmWrite: Type.Optional(Type.Boolean()),
+    }),
+    async execute(_toolCallId, params: ConfirmableParams & { profile?: string; configPath?: string; useEnv?: boolean; parentPostId: string; imagePaths: string[]; interpretation: string; title?: string }, _signal, _onUpdate, ctx) {
+      const client = await makeClient(params);
+      const prepared = await prepareForumImageReply(client, params);
+      if (!params.confirmWrite) {
+        const confirmed = ctx.hasUI && await ctx.ui.confirm("Upload images and create QDash forum reply?", prepared.preview.slice(0, 1800));
+        if (!confirmed) throw new Error("qdash_create_forum_image_reply requires explicit confirmation");
+      }
+      const created = await createForumImageReply(client, params, prepared);
+      const postId = firstString(created.reply as unknown as Record<string, unknown>, ["id"]);
+      const parentUrl = qdashWebUrl(client, `/forum/posts/${encodeURIComponent(params.parentPostId)}`);
+      const text = [`created forum image reply${postId ? ` ${postId}` : ""}`, `parent ${parentUrl}`, "", created.content].join("\n");
+      return toTextToolResult(text, created, { tool: "qdash_create_forum_image_reply", url: parentUrl });
     },
   });
 
