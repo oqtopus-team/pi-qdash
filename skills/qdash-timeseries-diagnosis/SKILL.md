@@ -27,7 +27,9 @@ checks.
 
 ### 1. Fix the investigation scope
 
-Record:
+Record the reusable scope with `/qdash-investigation-setup` when multiple
+comparison passes are expected. The JSON context accepts arbitrary QDash
+series, CSV mappings, window/timezone, and transform defaults. Record:
 
 - QDash profile and chip
 - metrics and target IDs

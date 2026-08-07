@@ -64,6 +64,8 @@ Use these commands to make pi behave like a QDash-specific harness with persiste
 /qdash-use-chip [chip_id]
 /qdash-use-target qid <qid> | coupling <coupling_id>
 /qdash-use-agent-session <session_id>
+/qdash-investigation-setup [json]
+/qdash-clear-investigation
 /qdash-context
 /qdash-dashboard [limit]
 /qdash-wiring-insights
@@ -76,7 +78,10 @@ Prefer the current context when the user has already selected a profile/chip/ses
 ## Generic timeseries comparison
 
 Use `qdash_compare_timeseries` when the investigation needs to align multiple
-QDash metrics/targets, local CSV sensor logs, or both. Do not assume a specific
+QDash metrics/targets, local CSV sensor logs, or both. For repeated calls, use
+`/qdash-investigation-setup` to store the arbitrary series mappings, window,
+timezone, and transform defaults; explicit tool arguments override the preset.
+Do not assume a specific
 CSV layout, metric name, target, unit, timestamp format, or timezone:
 
 1. Inspect unknown CSV headers, numeric coverage, and optional time cadence with

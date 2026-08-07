@@ -25,6 +25,7 @@ adding more large helper blocks to the entry file.
 Shared implementation modules live here:
 
 - `figure-analysis.ts` — pure read-only Plotly JSON summarization used by diagnostic tools.
+- `investigation-context.ts` — validation and summaries for reusable generic timeseries investigation presets.
 - `figures.ts` — figure download metadata, text summaries, and TUI image rendering helpers.
 - `forum-render.ts` — Forum payload extraction and compact list/detail text/TUI rendering helpers.
 - `links.ts` — QDash Web URL/link decoration helpers and safe non-secret config summaries.

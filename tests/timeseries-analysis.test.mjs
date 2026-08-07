@@ -5,6 +5,10 @@ import { join } from "node:path";
 import test from "node:test";
 
 import {
+  investigationContextSummary,
+  validateInvestigationContext,
+} from "../.test-dist/lib/investigation-context.js";
+import {
   compareTimeseries,
   inspectExternalCsv,
   loadExternalCsvSeries,
@@ -69,6 +73,36 @@ test("finds a shared period and inverse phase without metric-specific assumption
   assert.ok(Math.abs((result.periodicFits?.[0].periodMinutes ?? 0) - period) < 0.3);
   assert.ok(Math.abs(Math.abs(result.pairs[0].phaseDifferenceDegrees ?? 0) - 180) < 0.2);
   assert.ok((result.periodicFits?.[0].periodicExplainedFraction ?? 0) > 0.999);
+});
+
+test("validates reusable investigation context without metric-specific fields", () => {
+  const context = validateInvestigationContext({
+    name: "arbitrary comparison",
+    startAt: "2026-08-05T00:00:00Z",
+    endAt: "2026-08-06T00:00:00Z",
+    timezoneOffsetMinutes: 540,
+    tag: "experiment",
+    qdashSeries: [{ parameter: "metric_a", qid: "1" }],
+    csvSeries: [{
+      path: "sensor.csv",
+      timeColumn: "recorded_at",
+      timeFormat: "yyyy/M/d H:mm",
+      valueColumns: [{ column: "sensor_value", label: "sensor" }],
+    }],
+    analysis: {
+      resampleMinutes: 2,
+      smoothingWindowMinutes: 10,
+      detrend: "linear",
+      normalize: "zscore",
+      periodSearch: { minMinutes: 60, maxMinutes: 240 },
+    },
+  });
+  assert.equal(context.qdashSeries?.[0].parameter, "metric_a");
+  assert.match(investigationContextSummary(context), /2 series/);
+  assert.throws(() => validateInvestigationContext({
+    timezoneOffsetMinutes: 900,
+    qdashSeries: [{ parameter: "a" }, { parameter: "b" }],
+  }), /-840 to 840/);
 });
 
 test("requires an explicit timezone for naive timestamps", () => {
