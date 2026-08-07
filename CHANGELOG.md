@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.1.5](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.4...v0.1.5) - 2026-08-07
+
+- feat: add generic timeseries comparison by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/18
+- feat: upload local images to forum replies by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/17
+
 ## [v0.1.4](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.3...v0.1.4) - 2026-07-28
 
 - Add QCal evidence builder by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/15
