@@ -12,6 +12,7 @@ import {
   type ExternalCsvSpec,
   type NumericTimeseries,
 } from "../lib/timeseries-analysis.js";
+import type { TimeseriesInvestigationContext } from "../lib/investigation-context.js";
 import { toTextToolResult } from "../lib/results.js";
 import { timeseriesPoints } from "../lib/timeseries-plot.js";
 
@@ -32,11 +33,13 @@ type ComparisonToolParams = {
   maxInterpolationGapMinutes?: number;
   periodSearch?: { minMinutes: number; maxMinutes: number; stepMinutes?: number };
   includeAlignedData?: boolean;
+  useInvestigationContext?: boolean;
 };
 
 export type TimeseriesToolDependencies = {
   makeClient: (params: { profile?: string; configPath?: string; useEnv?: boolean }) => Promise<QDashClient>;
   defaultChipId: (client: QDashClient, chipId?: string) => Promise<string>;
+  investigationContext?: () => TimeseriesInvestigationContext | undefined;
 };
 
 export function registerTimeseriesComparisonTool(pi: ExtensionAPI, dependencies: TimeseriesToolDependencies): void {
@@ -93,6 +96,7 @@ export function registerTimeseriesComparisonTool(pi: ExtensionAPI, dependencies:
       startAt: Type.Optional(Type.String({ description: "Optional common start timestamp as an ISO timestamp with timezone." })),
       endAt: Type.Optional(Type.String({ description: "Optional common end timestamp as an ISO timestamp with timezone." })),
       withinHours: Type.Optional(Type.Number({ description: "QDash lookback when startAt is omitted. Defaults to 168 hours." })),
+      useInvestigationContext: Type.Optional(Type.Boolean({ description: "Use missing series/window/transform defaults from the active investigation context. Defaults to true." })),
       qdashSeries: Type.Optional(Type.Array(Type.Object({
         parameter: Type.String({ description: "QDash task-result parameter name." }),
         qid: Type.Optional(Type.String()),
@@ -131,20 +135,30 @@ export function registerTimeseriesComparisonTool(pi: ExtensionAPI, dependencies:
       includeAlignedData: Type.Optional(Type.Boolean({ description: "Include transformed aligned rows in structured details. Defaults to false." })),
     }),
     async execute(_toolCallId, params: ComparisonToolParams, _signal, _onUpdate, ctx) {
-      const detrend = params.detrend ?? "none";
-      const normalize = params.normalize ?? "none";
+      const investigation = params.useInvestigationContext === false ? undefined : dependencies.investigationContext?.();
+      const analysis = investigation?.analysis;
+      const detrend = params.detrend ?? analysis?.detrend ?? "none";
+      const normalize = params.normalize ?? analysis?.normalize ?? "none";
       if (detrend !== "none" && detrend !== "linear") throw new Error("detrend must be 'none' or 'linear'");
       if (normalize !== "none" && normalize !== "zscore") throw new Error("normalize must be 'none' or 'zscore'");
-      const csv = (params.csvSeries ?? []).flatMap((spec) => loadExternalCsvSeries(spec, ctx.cwd));
+      const csvSpecs = (params.csvSeries ?? investigation?.csvSeries ?? []).map((spec) => ({
+        ...spec,
+        timezoneOffsetMinutes: spec.timezoneOffsetMinutes ?? investigation?.timezoneOffsetMinutes,
+      }));
+      const qdashSpecs = (params.qdashSeries ?? investigation?.qdashSeries ?? []).map((spec) => ({
+        ...spec,
+        tag: spec.tag ?? investigation?.tag,
+      }));
+      const csv = csvSpecs.flatMap((spec) => loadExternalCsvSeries(spec, ctx.cwd));
       const qdash: NumericTimeseries[] = [];
-      let resolvedStartAt = params.startAt;
-      let resolvedEndAt = params.endAt;
-      if ((params.qdashSeries ?? []).length > 0) {
-        resolvedEndAt = params.endAt ?? new Date().toISOString();
-        resolvedStartAt = params.startAt ?? new Date(Date.parse(resolvedEndAt) - (params.withinHours ?? 168) * 3_600_000).toISOString();
+      let resolvedStartAt = params.startAt ?? investigation?.startAt;
+      let resolvedEndAt = params.endAt ?? investigation?.endAt;
+      if (qdashSpecs.length > 0) {
+        resolvedEndAt = resolvedEndAt ?? new Date().toISOString();
+        resolvedStartAt = resolvedStartAt ?? new Date(Date.parse(resolvedEndAt) - (params.withinHours ?? 168) * 3_600_000).toISOString();
         const client = await dependencies.makeClient(params);
         const chipId = await dependencies.defaultChipId(client, params.chipId);
-        const fetched = await Promise.all((params.qdashSeries ?? []).map(async (spec) => {
+        const fetched = await Promise.all(qdashSpecs.map(async (spec) => {
           const data = await client.getTaskResultsTimeseries({
             chipId,
             parameter: spec.parameter,
@@ -179,17 +193,18 @@ export function registerTimeseriesComparisonTool(pi: ExtensionAPI, dependencies:
       const comparison = compareTimeseries([...qdash, ...csv], {
         startAt: resolvedStartAt,
         endAt: resolvedEndAt,
-        resampleMinutes: params.resampleMinutes,
-        smoothingWindowMinutes: params.smoothingWindowMinutes,
+        resampleMinutes: params.resampleMinutes ?? analysis?.resampleMinutes,
+        smoothingWindowMinutes: params.smoothingWindowMinutes ?? analysis?.smoothingWindowMinutes,
         detrend,
         normalize,
-        maxInterpolationGapMinutes: params.maxInterpolationGapMinutes,
-        periodSearch: params.periodSearch,
+        maxInterpolationGapMinutes: params.maxInterpolationGapMinutes ?? analysis?.maxInterpolationGapMinutes,
+        periodSearch: params.periodSearch ?? analysis?.periodSearch,
         includeAlignedData: params.includeAlignedData,
       });
       return toTextToolResult(timeseriesComparisonText(comparison), comparison, {
         tool: "qdash_compare_timeseries",
         seriesCount: comparison.series.length,
+        investigation: investigation?.name,
       });
     },
   });

@@ -44,7 +44,10 @@ linear detrending, z-score normalization, and an optional shared-period
 sinusoidal fit with phase differences and explained fractions. The output
 always warns that correlation/shared periodicity do not prove causality and
 that short or smoothed records reduce statistical independence. Local CSV
-inputs are limited to 10 MB each and are never uploaded.
+inputs are limited to 10 MB each and are never uploaded. Missing comparison
+arguments can be supplied by the schema-validated session preset created with
+`/qdash-investigation-setup`; explicit tool arguments always take precedence,
+and `useInvestigationContext: false` disables the preset for one call.
 
 ## Overview and insight tools
 

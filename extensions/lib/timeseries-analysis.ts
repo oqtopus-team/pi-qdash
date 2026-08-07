@@ -499,6 +499,7 @@ export function compareTimeseries(inputSeries: NumericTimeseries[], options: Tim
   }
   if (alignedAt.length < 3) throw new Error("Fewer than three aligned points remain after interpolation gap filtering");
   const smoothingMinutes = options.smoothingWindowMinutes ?? 0;
+  if (smoothingMinutes < 0) throw new Error("smoothingWindowMinutes must not be negative");
   const smoothingWidth = Math.max(1, Math.round(smoothingMinutes / stepMinutes));
   const transformed = rawAligned.map((values) => {
     let output = centeredMean(values, smoothingWidth);
