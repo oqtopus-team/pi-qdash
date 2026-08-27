@@ -76,6 +76,20 @@ Use these commands to make pi behave like a QDash-specific harness with persiste
 
 Prefer the current context when the user has already selected a profile/chip/session. Tools use that context when parameters are omitted.
 
+## Cooldown-aware investigations
+
+Treat cooldown identity as mandatory investigation context whenever comparing calibration results, coherence metrics, drift, failures, or Forum evidence across time:
+
+1. Call `qdash_list_cooldowns` for the chip early in the investigation and record the relevant `cooldown_id`, `started_at`, and `ended_at` boundaries.
+2. Assign every result or Forum observation used in a comparison to a cooldown. Prefer an explicit `cooldown_id`; when it is absent, infer membership only from the chip association and timestamp boundaries, and label it as inferred.
+3. Do not describe values from different cooldowns as one continuous degradation, recovery, or before/after trend. Partition the evidence by cooldown first. Cross-cooldown comparison is allowed only when it is explicitly identified as such.
+4. State plainly whether the compared evidence comes from the same cooldown, different cooldowns, or an unresolved cooldown context. Include the cooldown IDs in the report and in Forum evidence replies when relevant.
+5. Same cooldown does not guarantee identical measurement conditions. If cabling, attenuation, instruments, or wiring may have changed, inspect `qdash_get_cooldown_wiring` with history or `qdash_list_cooldown_wiring_events`, then distinguish a cooldown boundary from an in-cooldown wiring change.
+6. Do not treat a temporary disconnect/reconnect as a new cooldown unless QDash records a new cooldown. Describe it as an in-cooldown wiring event and report whether the wiring was nominally restored.
+7. Prefer same-cooldown, temporally adjacent measurements for physical interpretation. Older-cooldown evidence may provide context but must not be used to explain a current-cooldown anomaly without an explicit caveat.
+
+Before publishing investigated evidence, verify that every date-based claim respects these rules.
+
 ## Generic timeseries comparison
 
 Use `qdash_compare_timeseries` when the investigation needs to align multiple
@@ -116,8 +130,8 @@ If `QDASH_BASE_URL` is set and no profile is specified, the tools default to env
 
 When the user wants to preserve an investigated observation in QDash forum/notes:
 
-1. Inspect the task result, task figure, timeseries/history, and related forum context first.
-2. Summarize the observation as evidence, not as an automatic calibration decision.
+1. Inspect the task result, task figure, timeseries/history, related Forum context, and cooldown membership first.
+2. Summarize the observation as evidence, not as an automatic calibration decision. State whether compared observations are from the same cooldown, and separate in-cooldown wiring changes from cooldown boundaries.
 3. Prefer replying to an existing target/coupling forum thread when one exists.
 4. Use `qdash_create_forum_evidence_reply` for task-result evidence so figures are embedded as QDash UI image blocks (`/api/executions/figure?path=...`) and visible in the forum.
 5. For locally generated analysis images, call `qdash_preview_forum_image_reply` first, show the exact paths and reply text, then use `qdash_create_forum_image_reply` only after explicit confirmation. Supported images are PNG, JPEG, GIF, and WebP up to 5 MB each.

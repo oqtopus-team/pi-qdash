@@ -22,6 +22,7 @@ checks.
   move together. The sensor itself may be a proxy for an unmeasured actuator,
   vibration, electrical noise, magnetic noise, or control cycle.
 - Count observed cycles, not raw sample points, when judging periodic evidence.
+- Resolve cooldown boundaries before interpreting drift or shared periodicity. Analyze each cooldown separately by default; never smooth, interpolate, correlate, or fit a period across a cooldown boundary unless an explicit cross-cooldown comparison is intended and clearly reported.
 
 ## Workflow
 
@@ -32,6 +33,8 @@ comparison passes are expected. The JSON context accepts arbitrary QDash
 series, CSV mappings, window/timezone, and transform defaults. Record:
 
 - QDash profile and chip
+- cooldown IDs and start/end boundaries from `qdash_list_cooldowns`
+- any in-cooldown wiring events that overlap the window
 - metrics and target IDs
 - tags
 - start/end timestamps
@@ -45,7 +48,9 @@ a timezone from the host machine.
 ### 2. Inspect source integrity
 
 Before comparing, use `qdash_inspect_timeseries_csv` for local files whose
-schema or time encoding is not already established. Then:
+schema or time encoding is not already established. Use `qdash_list_cooldowns`
+to split the requested window at cooldown boundaries, and inspect cooldown
+wiring events when hardware conditions may have changed. Then:
 
 - verify first/last timestamps and overlap
 - check source point counts and cadence
