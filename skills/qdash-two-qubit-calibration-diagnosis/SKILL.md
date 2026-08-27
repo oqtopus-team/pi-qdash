@@ -17,7 +17,8 @@ Use this skill when investigating coupling-level calibration quality, especially
 
 - Treat `completed` as execution status, not proof of calibration quality.
 - Diagnose from evidence before suggesting operational actions.
-- Prefer read-only tools first: `qdash_target_report`, `qdash_list_task_results`, `qdash_get_task_result`, `qdash_analyze_figure_json`, and `qdash_get_task_figures`.
+- Resolve cooldown membership before comparing calibrations or coherence limits. Keep different cooldowns separate, and distinguish a cooldown boundary from an in-cooldown wiring change.
+- Prefer read-only tools first: `qdash_list_cooldowns`, `qdash_target_report`, `qdash_list_task_results`, `qdash_get_task_result`, `qdash_analyze_figure_json`, and `qdash_get_task_figures`.
 - Do not rerun RB first when validation quality is suspicious. Walk back through prerequisites.
 - Do not commit or apply candidates without explicit user confirmation, and only after downstream validation.
 
@@ -25,8 +26,8 @@ Use this skill when investigating coupling-level calibration quality, especially
 
 For a coupling `cA-B`:
 
-1. Build context with `qdash_target_report` and recent task results for the coupling.
-2. Inspect the latest tasks in this chain:
+1. Build context with `qdash_list_cooldowns`, `qdash_target_report`, and recent task results for the coupling. Record the cooldown ID for each result and inspect wiring events when measurement conditions may have changed.
+2. Inspect the latest same-cooldown tasks in this chain by default:
    - `CheckCrossResonance`
    - `CreateZX90`
    - `CheckZX90`

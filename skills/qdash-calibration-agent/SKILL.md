@@ -32,7 +32,8 @@ This skill defines how pi should behave as a conservative, confirmation-gated ca
 
 - Work one target at a time: one qubit or one coupling per action/session when possible.
 - Diagnose before changing parameters.
-- Prefer read-only inspection first: dashboard, failed task results, history, figures, forum posts, and task knowledge when available.
+- Establish cooldown identity before interpreting history: partition evidence by `cooldown_id`, never present different cooldowns as one continuous trend, and distinguish cooldown boundaries from in-cooldown wiring changes.
+- Prefer read-only inspection first: dashboard, cooldowns and wiring events, failed task results, history, figures, forum posts, and task knowledge when available.
 - Use narrow agent session policies with the smallest allowed task/action/parameter scope.
 - Do not commit or apply parameter candidates until a validation task succeeds and the user explicitly confirms.
 - Avoid blind parameter sweeps. If two conservative probes fail, step back to a diagnostic task.
@@ -42,6 +43,8 @@ This skill defines how pi should behave as a conservative, confirmation-gated ca
 
 1. Establish context:
    - profile and chip
+   - active/relevant `cooldown_id` and its time boundaries via `qdash_list_cooldowns`
+   - any in-cooldown wiring changes relevant to the target
    - failed task(s)
    - qid/coupling_id
    - recent executions and open forum/issue context
