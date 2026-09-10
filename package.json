@@ -5,6 +5,9 @@
   "type": "module",
   "license": "Apache-2.0",
   "author": "OQTOPUS Team <oqtopus-team@googlegroups.com>",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/oqtopus-team/pi-qdash.git"
@@ -24,7 +27,7 @@
     "access": "public"
   },
   "dependencies": {
-    "@oqtopus-team/qdash-client": "^0.1.4"
+    "@oqtopus-team/qdash-client": "^1.9.11"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
