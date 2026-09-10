@@ -4,7 +4,13 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 
 import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
-import { QDashClient, defaultConfigPath, type DownloadedFile, type TaskResultFigureOptions } from "@oqtopus-team/qdash-client";
+import {
+  QDashClient,
+  defaultConfigPath,
+  type CooldownResponse,
+  type DownloadedFile,
+  type TaskResultFigureOptions,
+} from "@oqtopus-team/qdash-client";
 import { Text, truncateToWidth } from "@earendil-works/pi-tui";
 import { Type } from "typebox";
 
@@ -397,6 +403,9 @@ async function defaultChipId(client: QDashClient, chipId?: string): Promise<stri
   return chipId ?? currentContext.chipId ?? client.getDefaultChipId();
 }
 
+// Keep arbitrary GET access isolated for qdash_raw_get and legacy filters that are
+// not represented in the generated OpenAPI surface. Normal operations should use
+// QDashClient's high-level methods or client.api so upgrades remain type-checked.
 async function rawGet<T>(client: QDashClient, path: string, query?: Record<string, unknown>): Promise<T> {
   return (client as unknown as { get<T>(path: string, query?: Record<string, unknown>): Promise<T> }).get(path, cleanQuery(query));
 }
@@ -472,19 +481,6 @@ function requireValue(value: string | undefined, name: string): string {
   return value;
 }
 
-type CooldownRecord = {
-  cooldown_id: string;
-  cryo_id: string;
-  description?: string;
-  started_at: string;
-  ended_at?: string | null;
-  chip_ids?: string[];
-  wiring_info?: string;
-  wiring_blocks?: Record<string, unknown>[];
-};
-
-type CooldownListResponse = { cooldowns?: CooldownRecord[] };
-
 type CooldownWiringParams = {
   profile?: string;
   configPath?: string;
@@ -502,7 +498,7 @@ type WiringInsightParams = CooldownWiringParams & {
   color?: boolean;
 };
 
-function newestCooldown(cooldowns: CooldownRecord[]): CooldownRecord | undefined {
+function newestCooldown(cooldowns: CooldownResponse[]): CooldownResponse | undefined {
   return [...cooldowns].sort((a, b) => {
     const activeDifference = Number(a.ended_at != null) - Number(b.ended_at != null);
     if (activeDifference !== 0) return activeDifference;
@@ -514,15 +510,15 @@ async function resolveCooldownWiring(params: CooldownWiringParams) {
   params = applyQDashContext(params);
   const client = await makeClient(params);
   let selection: string;
-  let cooldown: CooldownRecord;
+  let cooldown: CooldownResponse;
   let resolvedChipId = params.chipId ?? currentContext.chipId;
 
   if (params.cooldownId) {
-    cooldown = await rawGet<CooldownRecord>(client, `/cooldowns/${pathPart(params.cooldownId)}`);
+    cooldown = await client.api.getCooldown(params.cooldownId);
     selection = "explicit cooldownId";
   } else {
     resolvedChipId = params.chipId ?? (params.cryoId ? undefined : await defaultChipId(client));
-    const response = await rawGet<CooldownListResponse>(client, "/cooldowns", {
+    const response = await client.api.listCooldowns({
       cryo_id: params.cryoId,
       chip_id: resolvedChipId,
     });
@@ -531,7 +527,7 @@ async function resolveCooldownWiring(params: CooldownWiringParams) {
       const scope = params.cryoId ? `cryo ${params.cryoId}` : `chip ${resolvedChipId}`;
       throw new Error(`No cooldown containing wiring information was found for ${scope}`);
     }
-    cooldown = await rawGet<CooldownRecord>(client, `/cooldowns/${pathPart(selected.cooldown_id)}`);
+    cooldown = await client.api.getCooldown(selected.cooldown_id);
     selection = params.cryoId ? "active/newest cooldown for cryo" : "active/newest cooldown for chip";
   }
 
@@ -539,14 +535,14 @@ async function resolveCooldownWiring(params: CooldownWiringParams) {
   const wiringInfo = typeof cooldown.wiring_info === "string" ? cooldown.wiring_info.trim() : "";
   const includeBlocks = params.includeBlocks === true || !wiringInfo;
   const history = params.includeHistory
-    ? await rawGet(client, `/cooldowns/${pathPart(cooldown.cooldown_id)}/wiring-events`, {
+    ? await client.api.listCooldownWiringEvents(cooldown.cooldown_id, {
         limit: params.historyLimit ?? 20,
         skip: 0,
       })
     : undefined;
   let cryostat: unknown;
   try {
-    cryostat = await rawGet(client, `/cryostats/${pathPart(cooldown.cryo_id)}`);
+    cryostat = await client.api.getCryostat(cooldown.cryo_id);
   } catch {
     // Wiring remains useful on servers where cryostat detail is not accessible.
   }
@@ -594,9 +590,9 @@ async function buildDashboard(params: { profile?: string; configPath?: string; u
   const chipId = await defaultChipId(client, params.chipId);
   const [chips, openIssues, recentExecutions, failedTaskResults, provenanceStats] = await Promise.allSettled([
     client.listChips(),
-    rawGet(client, "/issues", { is_closed: false, limit }),
-    rawGet(client, "/executions", { chip_id: chipId, limit }),
-    rawGet(client, "/task-results", { chip_id: chipId, status: "failed", limit }),
+    client.api.listIssues({ is_closed: false, limit }),
+    client.api.listExecutions({ chip_id: chipId, limit }),
+    client.api.listTaskResults({ chip_id: chipId, status: "failed", limit }),
     client.getProvenanceStats(),
   ]);
   const value = <T>(result: PromiseSettledResult<T>): T | { error: string } => result.status === "fulfilled" ? result.value : { error: result.reason instanceof Error ? result.reason.message : String(result.reason) };
@@ -738,7 +734,7 @@ async function buildRecentCalibrationSummary(params: { profile?: string; configP
   const chipId = await defaultChipId(client, params.chipId);
   const end = new Date();
   const start = new Date(end.getTime() - (params.withinHours ?? 24) * 3600_000);
-  const payload = await rawGet(client, "/task-results", { chip_id: chipId, start_from: start.toISOString(), start_to: end.toISOString(), limit: params.limit ?? 30 });
+  const payload = await client.api.listTaskResults({ chip_id: chipId, start_from: start.toISOString(), start_to: end.toISOString(), limit: params.limit ?? 30 });
   const items = arrayFromPayload(payload).filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
   const byTarget = new Map<string, Record<string, unknown>[]>();
   for (const item of items) {
@@ -939,7 +935,7 @@ async function buildTargetOperationsReport(params: { profile?: string; configPat
   const [latestTarget, results, issues, forumPosts] = await Promise.all([
     kind === "qubit" ? client.getChipQubit(chipId, id) : client.getChipCoupling(chipId, id),
     client.listTaskResults({ chipId, qid, couplingId, startAt: start.toISOString(), endAt: end.toISOString(), limit }),
-    rawGet(client, "/issues", { is_closed: false, limit: 100 }),
+    client.api.listIssues({ is_closed: false, limit: 100 }),
     client.listForumPosts({ chipId, status: "open", targetType: kind, targetId: id, limit }),
   ]);
   const recentResults = arrayFromPayload(results).filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
@@ -1123,7 +1119,7 @@ async function buildCalibrationValidation(params: { profile?: string; configPath
   const task = await client.getTaskResult(params.taskId) as unknown as Record<string, unknown>;
   const status = firstString(task, ["status"])?.toLowerCase() ?? "unknown";
   const figurePaths = taskFigurePaths(task, 20);
-  const issuesPayload = await rawGet(client, `/task-results/${pathPart(params.taskId)}/issues`).catch(() => []);
+  const issuesPayload = await client.api.getTaskResultIssues(params.taskId).catch(() => []);
   const issues = arrayFromPayload(issuesPayload).filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === "object");
   const afterExecutionId = firstString(task, ["execution_id", "executionId"]);
   const comparison = params.beforeExecutionId && afterExecutionId
@@ -1256,10 +1252,10 @@ async function buildDashboardInsights(params: { profile?: string; configPath?: s
   const start = new Date(end.getTime() - (params.withinHours ?? 168) * 3600_000);
   const [forums, issues, failed, metrics, aiInsights] = await Promise.allSettled([
     client.listForumPosts({ chipId, status: "open", limit }),
-    rawGet(client, "/issues", { is_closed: false, limit }),
-    rawGet(client, "/task-results", { chip_id: chipId, status: "failed", start_from: start.toISOString(), start_to: end.toISOString(), limit }),
+    client.api.listIssues({ is_closed: false, limit }),
+    client.api.listTaskResults({ chip_id: chipId, status: "failed", start_from: start.toISOString(), start_to: end.toISOString(), limit }),
     client.getChipMetrics(chipId),
-    rawGet(client, `/chips/${pathPart(chipId)}/ai-insights`, { latest_only: true, start_at: start.toISOString(), end_at: end.toISOString() }),
+    client.api.getDashboardAiInsights(chipId, { latest_only: true, start_at: start.toISOString(), end_at: end.toISOString() }),
   ]);
   const value = <T>(result: PromiseSettledResult<T>): T | undefined => result.status === "fulfilled" ? result.value : undefined;
   const insightMap = new Map<string, DashboardInsight>();
@@ -1485,19 +1481,19 @@ async function executeQuery(params: QDashQueryParams) {
     case "chip_qubit": return client.getChipQubit(await defaultChipId(client, params.chipId), requireValue(params.qid, "qid"));
     case "chip_couplings": return client.listChipCouplings(await defaultChipId(client, params.chipId), { limit: params.limit, offset: params.offset });
     case "chip_coupling": return client.getChipCoupling(await defaultChipId(client, params.chipId), requireValue(params.couplingId, "couplingId"));
-    case "cryostats": return rawGet(client, "/cryostats");
-    case "cryostat": return rawGet(client, `/cryostats/${pathPart(requireValue(params.cryoId, "cryoId"))}`);
-    case "cooldowns": return rawGet(client, "/cooldowns", { cryo_id: params.cryoId, chip_id: params.chipId });
-    case "cooldown": return rawGet(client, `/cooldowns/${pathPart(requireValue(params.cooldownId, "cooldownId"))}`);
-    case "cooldown_wiring_events": return rawGet(client, `/cooldowns/${pathPart(requireValue(params.cooldownId, "cooldownId"))}/wiring-events`, { limit: params.limit, skip: params.skip });
+    case "cryostats": return client.api.listCryostats();
+    case "cryostat": return client.api.getCryostat(requireValue(params.cryoId, "cryoId"));
+    case "cooldowns": return client.api.listCooldowns({ cryo_id: params.cryoId, chip_id: params.chipId });
+    case "cooldown": return client.api.getCooldown(requireValue(params.cooldownId, "cooldownId"));
+    case "cooldown_wiring_events": return client.api.listCooldownWiringEvents(requireValue(params.cooldownId, "cooldownId"), { limit: params.limit, skip: params.skip });
     case "timeseries": return client.getTaskResultsTimeseries({ chipId: await defaultChipId(client, params.chipId), parameter: requireValue(params.parameter, "parameter"), tag: params.tag, qid: params.qid, startAt: requireValue(params.startAt, "startAt"), endAt: requireValue(params.endAt, "endAt") });
     case "task_results": return rawGet(client, "/task-results", { chip_id: params.chipId, task_name: params.taskName, qid: params.qid, coupling_id: params.couplingId, execution_id: params.executionId, username: params.username, status: params.status, start_from: params.startFrom ?? params.startAt, start_to: params.startTo ?? params.endAt, message_contains: params.messageContains, limit: params.limit, skip: params.skip });
     case "task_result": return client.getTaskResult(requireValue(params.taskId, "taskId"));
-    case "task_note": return rawGet(client, `/task-results/${pathPart(requireValue(params.taskId, "taskId"))}/note`);
-    case "task_result_issues": return rawGet(client, `/task-results/${pathPart(requireValue(params.taskId, "taskId"))}/issues`);
-    case "qubit_latest": return rawGet(client, "/task-results/qubits/latest", { chip_id: await defaultChipId(client, params.chipId), task: requireValue(params.task ?? params.taskName, "task") });
+    case "task_note": return client.api.getTaskNote(requireValue(params.taskId, "taskId"));
+    case "task_result_issues": return client.api.getTaskResultIssues(requireValue(params.taskId, "taskId"));
+    case "qubit_latest": return client.api.getLatestQubitTaskResults({ chip_id: await defaultChipId(client, params.chipId), task: requireValue(params.task ?? params.taskName, "task") });
     case "qubit_history": return rawGet(client, `/task-results/qubits/${pathPart(requireValue(params.qid, "qid"))}/history`, { chip_id: await defaultChipId(client, params.chipId), task: requireValue(params.task ?? params.taskName, "task"), date: requireValue(params.date, "date") });
-    case "coupling_latest": return rawGet(client, "/task-results/couplings/latest", { chip_id: await defaultChipId(client, params.chipId), task: requireValue(params.task ?? params.taskName, "task") });
+    case "coupling_latest": return client.api.getLatestCouplingTaskResults({ chip_id: await defaultChipId(client, params.chipId), task: requireValue(params.task ?? params.taskName, "task") });
     case "coupling_history": return rawGet(client, `/task-results/couplings/${pathPart(requireValue(params.couplingId, "couplingId"))}/history`, { chip_id: await defaultChipId(client, params.chipId), task: requireValue(params.task ?? params.taskName, "task"), date: requireValue(params.date, "date") });
     case "tasks": return client.listTasks(params.backend);
     case "task_knowledge": return params.taskName ? client.getTaskKnowledge(params.taskName) : client.listTaskKnowledge();
@@ -1507,23 +1503,26 @@ async function executeQuery(params: QDashQueryParams) {
     case "files_tree": return client.getFilesTree();
     case "file_content": return client.getFileContent(requireValue(params.path, "path"));
     case "git_status": return client.getGitStatus();
-    case "issues": return rawGet(client, "/issues", { task_id: params.taskId, is_closed: params.isClosed, limit: params.limit, skip: params.skip });
-    case "issue_knowledge": return rawGet(client, "/issue-knowledge", { status: params.status, task_name: params.taskName, limit: params.limit, skip: params.skip });
+    case "issues": return client.api.listIssues({ task_id: params.taskId, is_closed: params.isClosed, limit: params.limit, skip: params.skip });
+    case "issue_knowledge": return client.api.listIssueKnowledge({ status: params.status, task_name: params.taskName, limit: params.limit, skip: params.skip });
     case "flows": return client.listFlows();
     case "flow": return client.getFlow(requireValue(params.flowName, "flowName"));
     case "flow_templates": return client.listFlowTemplates();
     case "flow_template": return client.getFlowTemplate(requireValue(params.templateId, "templateId"));
-    case "flow_helper_files": return rawGet(client, "/flows/helpers");
-    case "flow_helper_file": return rawGet(client, `/flows/helpers/${pathPart(requireValue(params.filename, "filename"))}`);
+    case "flow_helper_files": return client.api.listFlowHelperFiles();
+    case "flow_helper_file": return client.api.getFlowHelperFile(requireValue(params.filename, "filename"));
     case "executions": return rawGet(client, "/executions", { chip_id: params.chipId, flow_name: params.flowName, status: params.status, skip: params.skip, limit: params.limit });
     case "execution": return client.getExecution(requireValue(params.executionId, "executionId"));
-    case "ai_reviews": return rawGet(client, "/task-results/ai-review", { chip_id: params.chipId, task_name: params.taskName, status: params.status, decision: params.decision, latest_only: params.latestOnly, skip: params.skip, limit: params.limit });
-    case "ai_review_runs": return rawGet(client, "/task-results/ai-review/runs", { chip_id: params.chipId, task_name: params.taskName, skip: params.skip, limit: params.limit });
-    case "ai_review_run": return rawGet(client, `/task-results/ai-review/runs/${pathPart(requireValue(params.reviewRunId, "reviewRunId"))}`);
+    case "ai_reviews": return client.api.listTaskResultAiReviews({ chip_id: params.chipId, task_name: params.taskName, status: params.status, decision: params.decision, latest_only: params.latestOnly, skip: params.skip, limit: params.limit });
+    case "ai_review_runs": return client.api.listTaskResultAiReviewRuns({ chip_id: params.chipId, task_name: params.taskName, skip: params.skip, limit: params.limit });
+    case "ai_review_run": return client.api.getTaskResultAiReviewRun(requireValue(params.reviewRunId, "reviewRunId"));
     case "forum_posts": return client.listForumPosts({ status: params.status, chipId: params.chipId, limit: params.limit, skip: params.skip });
     case "provenance_stats": return client.getProvenanceStats();
-    case "provenance_history": return rawGet(client, "/provenance/history", { parameter_name: params.parameterName ?? params.parameter, qid: params.qid, limit: params.limit });
-    case "provenance_changes": return rawGet(client, "/provenance/changes", { parameter_names: params.parameterName ?? params.parameter, within_hours: params.withinHours, limit: params.limit });
+    case "provenance_history": return client.api.getParameterHistory({ parameter_name: requireValue(params.parameterName ?? params.parameter, "parameterName"), qid: requireValue(params.qid, "qid"), limit: params.limit });
+    case "provenance_changes": {
+      const parameterName = params.parameterName ?? params.parameter;
+      return client.getRecentChanges({ parameterNames: parameterName ? [parameterName] : undefined, withinHours: params.withinHours, limit: params.limit });
+    }
     case "provenance_lineage": return client.getProvenanceLineage(requireValue(params.entityId, "entityId"));
     case "provenance_impact": return client.getProvenanceImpact(requireValue(params.entityId, "entityId"));
   }

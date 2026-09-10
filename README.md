@@ -43,7 +43,9 @@ Or try it without installing:
 pi -e npm:@oqtopus-team/pi-qdash
 ```
 
-Requires pi v0.74.0 or later.
+Requires Node.js 20 or later and pi v0.74.0 or later. The extension tracks
+`@oqtopus-team/qdash-client` 1.9.x and uses its authenticated high-level and
+generated API clients.
 
 ## Quick Start
 
