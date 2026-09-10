@@ -1,5 +1,10 @@
 # Changelog
 
+## [v0.1.6](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.5...v0.1.6) - 2026-09-10
+
+- feat: make investigations cooldown-aware by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/21
+- chore: update qdash client to 1.9.11 by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/23
+
 ## [v0.1.5](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.4...v0.1.5) - 2026-08-07
 
 - feat: add generic timeseries comparison by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/18
