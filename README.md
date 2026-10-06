@@ -48,6 +48,14 @@ Requires Node.js 20 or later and pi v0.74.0 or later. The extension tracks
 `@oqtopus-team/qdash-client` 1.9.x and uses its authenticated high-level and
 generated API clients.
 
+Every push to `main` also publishes a prerelease under the `beta` dist-tag
+(the next patch version with a `-beta.<build>` suffix, for example
+`0.1.10-beta.42`). Use it to try tools that are merged but not yet released:
+
+```bash
+pi install npm:@oqtopus-team/pi-qdash@beta
+```
+
 ## Quick Start
 
 In interactive pi, set up the session context first:

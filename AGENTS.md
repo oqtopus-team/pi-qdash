@@ -42,3 +42,5 @@ Releases are fully automated with tagpr:
 - Do NOT create or push `v*` tags.
 
 tagpr maintains a release pull request on pushes to `main`; merging it tags the release and the publish workflow releases to npm. To change the bump size, label the release PR with `tagpr:minor` or `tagpr:major`.
+
+Every other push to `main` publishes a prerelease to npm under the `beta` dist-tag (`<next patch>-beta.<run number>`, from the same publish workflow). Downstream projects such as QDash pin these to test merged-but-unreleased changes; `latest` is unaffected.
