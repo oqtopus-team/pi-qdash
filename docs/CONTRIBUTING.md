@@ -49,6 +49,12 @@ Releases are automated with [tagpr](https://github.com/Songmu/tagpr):
 2. The version bump is patch by default. Add the `tagpr:minor` or `tagpr:major` label to the release pull request to change it.
 3. Merging the release pull request creates a `v*` tag, and the publish workflow releases the package to npm with provenance.
 
+The publish workflow uses npm Trusted Publishing for `oqtopus-team/pi-qdash` and
+`.github/workflows/publish-npm.yml`. If a tagged publish fails before npm accepts
+the package, fix the workflow through a pull request, then manually run
+`Publish npm package` on `main`. The workflow checks that the package files still
+match the existing release tag before publishing.
+
 Do not bump the version in `package.json` or edit `CHANGELOG.md` manually; tagpr manages both.
 
 Thank you for your contributions!
