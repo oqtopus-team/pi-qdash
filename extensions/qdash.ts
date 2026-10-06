@@ -21,7 +21,7 @@ import { forumDetailComponent, forumDetailLines, forumListLines, forumPostTitle,
 import { investigationContextSummary, validateInvestigationContext, type TimeseriesInvestigationContext } from "./lib/investigation-context.js";
 import { qdashObjectLinks, qdashWebBaseUrl, qdashWebUrl, safeConfig, withQDashLinks } from "./lib/links.js";
 import { arrayFromPayload, compactItems, firstNumber, firstString, formatItem, payloadTotal, statusIcon } from "./lib/payload.js";
-import { toTextToolResult, toToolResult } from "./lib/results.js";
+import { toFigureToolResult, toTextToolResult, toToolResult } from "./lib/results.js";
 import { ansi, boxLinesToWidth, boxed, formatNumber, textComponent } from "./lib/render.js";
 import { plotSeriesLines, timeseriesPlotComponent, timeseriesPoints } from "./lib/timeseries-plot.js";
 import { installQDashWriteGate } from "./lib/write-gate.js";
@@ -2543,7 +2543,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
       const details: FigureDetails = { tool: "qdash_recent_calibration_figure", taskId, path: file.path ?? "", mediaType, sizeBytes: bytes.byteLength, figurePaths: file.figurePaths ?? [], jsonFigurePaths: file.jsonFigurePaths ?? [] };
       if (mediaType.startsWith("image/")) details.base64 = bytes.toString("base64");
       else details.text = bytes.toString("utf8");
-      return toTextToolResult(figureResultText(details), { task, selectedPath: details.path }, details);
+      return toFigureToolResult(figureResultText(details), details, { task, selectedPath: details.path }, details);
     },
     renderResult(result, _options, theme) {
       return figureComponent(result.details as unknown as FigureDetails, theme);
@@ -2563,7 +2563,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
     async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; path: string }) {
       const client = await makeClient(params);
       const details = await fetchFigureDetails(client, params.path);
-      return toTextToolResult(figureResultText(details), { path: params.path }, details);
+      return toFigureToolResult(figureResultText(details), details, { path: params.path }, details);
     },
     renderResult(result, _options, theme) {
       return figureComponent(result.details as unknown as FigureDetails, theme);
@@ -2600,7 +2600,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
         };
         if (mediaType.startsWith("image/")) details.base64 = bytes.toString("base64");
         else details.text = bytes.toString("utf8");
-        return toTextToolResult(figureResultText(details), { taskId: params.taskId, figurePaths: details.figurePaths, jsonFigurePaths: details.jsonFigurePaths, selectedPath: details.path }, details);
+        return toFigureToolResult(figureResultText(details), details, { taskId: params.taskId, figurePaths: details.figurePaths, jsonFigurePaths: details.jsonFigurePaths, selectedPath: details.path }, details);
       } catch (error) {
         return toTextToolResult(boxed("QDash Task Figures", [
           `task ${params.taskId}`,
