@@ -18,6 +18,7 @@ session profile/chip context when their parameters are omitted.
 - `qdash_get_task_knowledge`: fetch full markdown or a concise structured summary for interpreting a task's expected result and failure modes
 - `qdash_list_issues`
 - `qdash_list_flows`, `qdash_get_flow`
+- `qdash_get_pipeline_catalog`, `qdash_plan_pipeline`: list the step types and tasks for a calibration pipeline spec, and validate a spec (problems with paths, resolved tasks per step) without running it
 - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions`
 - `qdash_list_ai_reviews`, `qdash_get_provenance_stats`
 - `qdash_list_forum_posts`, `qdash_get_forum_post`, `qdash_list_forum_replies`
@@ -103,6 +104,15 @@ confirmation-gated `qdash_create_forum_image_reply` (up to eight images, 5 MB
 each). Other forum writes include `qdash_create_forum_post` and
 `qdash_update_forum_post`. The evidence helpers build markdown replies, keep
 figures visible in the forum, and mark replies with `— 🤖 by pi-qdash`.
+
+Calibration pipelines are declarative: `qdash_get_pipeline_catalog` lists the
+step types QDash accepts (with their dependencies and default task lists) and
+the backend's tasks by type, `qdash_plan_pipeline` validates a spec and returns
+problems with paths into the spec plus the exact tasks each step will run, and
+confirmation-gated `qdash_run_pipeline` starts the validated spec as one QDash
+execution. The spec is sent as-is; QDash owns validation, and a 422 with
+problems is reported as text rather than raised. Follow the execution with
+`qdash_wait_execution`.
 
 ## Fallback tools
 
