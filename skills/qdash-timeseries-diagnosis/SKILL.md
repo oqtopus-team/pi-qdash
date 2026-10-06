@@ -26,6 +26,8 @@ checks.
 
 ## Workflow
 
+When a compared QDash series comes from a task-specific output, call `qdash_get_task_knowledge` for that task before assigning physical meaning to its values, expected behavior, or failure modes.
+
 ### 1. Fix the investigation scope
 
 Record the reusable scope with `/qdash-investigation-setup` when multiple

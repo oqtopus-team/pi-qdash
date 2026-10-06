@@ -16,7 +16,7 @@ It uses [`@oqtopus-team/qdash-client`](https://www.npmjs.com/package/@oqtopus-te
 
 ## Key Features
 
-- **Read-only investigation**: dedicated tools to inspect chips, qubits, couplings, calibration task results, executions, issues, and Forum posts. Secrets are redacted from tool output.
+- **Read-only investigation**: dedicated tools to inspect chips, qubits, couplings, calibration task results, task knowledge (`qdash_get_task_knowledge`), executions, issues, and Forum posts. Secrets are redacted from tool output.
 - **Dashboards and insights**: compact dashboards, triage overviews, target-level incident reports, degradation reports, and wiring insights.
 - **Agent calibration workflow**: create agent sessions, submit and track agent actions, and commit/apply calibration candidates. Write operations are approval-gated.
 - **Figures**: fetch calibration PNG/JSON figures and render them in the interactive TUI.
