@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.8](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.7...v0.1.8) - 2026-10-06
+
+- fix: publish npm package with trusted publishing by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/26
+
 ## [v0.1.7](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.6...v0.1.7) - 2026-10-06
 
 - feat: add dedicated task knowledge tool by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/24
