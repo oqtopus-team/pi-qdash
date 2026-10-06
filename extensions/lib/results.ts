@@ -28,3 +28,26 @@ export function toTextToolResult(text: string, data: unknown, details: Record<st
     details: { ...details, data: safeData },
   };
 }
+
+/**
+ * Result of a tool that fetched a figure: the text summary plus, for an image,
+ * the image itself as model-visible content. Without the image block a
+ * vision model only reads that a figure exists; with it, it can judge the
+ * curve. Non-image figures (JSON) keep a text-only result.
+ */
+export function toFigureToolResult(
+  text: string,
+  figure: { base64?: string; mediaType: string },
+  data: unknown,
+  details: Record<string, unknown> = {},
+) {
+  const result = toTextToolResult(text, data, details);
+  if (!figure.base64 || !figure.mediaType.startsWith("image/")) return result;
+  return {
+    ...result,
+    content: [
+      ...result.content,
+      { type: "image" as const, data: figure.base64, mimeType: figure.mediaType },
+    ],
+  };
+}

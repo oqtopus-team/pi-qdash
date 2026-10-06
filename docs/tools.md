@@ -25,6 +25,11 @@ session profile/chip context when their parameters are omitted.
 - `qdash_preview_forum_evidence_reply`, `qdash_preview_forum_image_reply`
 - `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`, `qdash_analyze_figure_json`, `qdash_build_qcal_evidence`
 
+The three figure tools return an image figure to the model as image content
+alongside the text summary, so a vision model can read the curve itself; JSON
+figures stay text. The interactive TUI renders the same image, and QDash's chat
+shows the figure paths from the tool details inline.
+
 `qdash_get_cooldown_wiring` resolves the active/newest cooldown automatically
 from a cryostat or the current/default chip, and returns compact human-readable
 wiring markdown with opt-in attenuation insights. `qdash_wiring_insights`
