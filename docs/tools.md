@@ -119,6 +119,10 @@ execution. The spec is sent as-is; QDash owns validation, and a 422 with
 problems is reported as text rather than raised. Follow the execution with
 `qdash_wait_execution`.
 
+Links in tool output point at the QDash web UI. Set `QDASH_WEB_URL` when the
+UI is not reachable at the API base URL minus `/api` (a deployment where the
+API is an internal hostname); otherwise that derivation is used.
+
 ## Fallback tools
 
 - `qdash_query`: fallback for read-only queries that do not yet have a dedicated tool

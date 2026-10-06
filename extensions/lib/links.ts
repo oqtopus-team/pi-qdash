@@ -9,7 +9,17 @@ function firstString(object: Record<string, unknown>, keys: string[]): string | 
   return undefined;
 }
 
-export function qdashWebBaseUrl(client: QDashClient): string {
+/**
+ * Where the QDash web UI lives, for links in tool output.
+ *
+ * `QDASH_WEB_URL` wins when set: inside a deployment the API base URL is an
+ * internal address (`http://api:5715`) that no browser can open. Without it,
+ * the UI is assumed to sit next to the API with the `/api` prefix stripped,
+ * which holds for a local checkout.
+ */
+export function qdashWebBaseUrl(client: QDashClient, env: NodeJS.ProcessEnv = process.env): string {
+  const configured = env.QDASH_WEB_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, "");
   return client.config.baseUrl.replace(/\/api\/?$/, "").replace(/\/$/, "");
 }
 
