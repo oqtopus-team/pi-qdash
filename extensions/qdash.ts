@@ -25,6 +25,7 @@ import { toTextToolResult, toToolResult } from "./lib/results.js";
 import { ansi, boxLinesToWidth, boxed, formatNumber, textComponent } from "./lib/render.js";
 import { plotSeriesLines, timeseriesPlotComponent, timeseriesPoints } from "./lib/timeseries-plot.js";
 import { installQDashWriteGate } from "./lib/write-gate.js";
+import { registerTaskKnowledgeTool } from "./tools/task-knowledge.js";
 import { registerTimeseriesComparisonTool } from "./tools/timeseries.js";
 import { analyzeWiringMarkdown, wiringInsightLines, type WiringInsights } from "./lib/wiring-analysis.js";
 
@@ -1530,6 +1531,7 @@ async function executeQuery(params: QDashQueryParams) {
 
 export default function qdashExtension(pi: ExtensionAPI) {
   installQDashWriteGate(pi);
+  registerTaskKnowledgeTool(pi, { makeClient });
 
   pi.registerTool({
     name: "qdash_config_info",

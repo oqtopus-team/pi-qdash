@@ -9,7 +9,7 @@ metadata:
   maturity: experimental
   safety_level: operational-write-gated
   default_mode: one-target-one-action
-  source_of_truth: pi-qdash skills until QDash task-knowledge operation is finalized
+  source_of_truth: procedures in pi-qdash skills; task physics and interpretation in qdash-task-knowledge
   preferred_qubit_recovery_recipe: CheckRabi -> CheckChevron -> Configure -> CheckRabi
   requires_confirmation_for:
     - agent session creation
@@ -26,7 +26,7 @@ metadata:
 
 # QDash Calibration Agent
 
-This skill defines how pi should behave as a conservative, confirmation-gated calibration execution agent. It should orchestrate safe operational steps after diagnosis. Long-lived physics/task knowledge may later move to QDash task-knowledge; detailed read-only diagnosis should live in dedicated diagnosis skills.
+This skill defines how pi should behave as a conservative, confirmation-gated calibration execution agent. It orchestrates safe operational steps after diagnosis. Task physics, expected results, and failure modes come from QDash task knowledge; this skill owns procedure and safety gates.
 
 ## Core principles
 
@@ -37,7 +37,7 @@ This skill defines how pi should behave as a conservative, confirmation-gated ca
 - Use narrow agent session policies with the smallest allowed task/action/parameter scope.
 - Do not commit or apply parameter candidates until a validation task succeeds and the user explicitly confirms.
 - Avoid blind parameter sweeps. If two conservative probes fail, step back to a diagnostic task.
-- Record useful lessons as task-knowledge cases or as updates to this skill.
+- Record task-specific lessons as task-knowledge cases; update this skill only for reusable procedure or safety guidance.
 
 ## Standard workflow
 
@@ -51,6 +51,7 @@ This skill defines how pi should behave as a conservative, confirmation-gated ca
 2. Read evidence:
    - `qdash_list_task_results`
    - `qdash_get_task_result`
+   - `qdash_get_task_knowledge` for every task whose result will be interpreted
    - `qdash_get_task_figures` when figures exist
    - forum posts for the target when relevant
 3. Make a one-step plan.
@@ -64,7 +65,7 @@ This skill defines how pi should behave as a conservative, confirmation-gated ca
 
 ### CheckRabi returns non-finite frequency, NaN, or low R²
 
-Do not repeatedly perturb `control_amplitude`, `readout_amplitude`, or `shots` without diagnosis.
+Read `CheckRabi` and `CheckChevron` with `qdash_get_task_knowledge` before interpreting the failure or proposing recovery. Do not repeatedly perturb parameters without diagnosis.
 
 Canonical recovery sequence:
 
@@ -81,26 +82,9 @@ Recommended sequence:
 5. If successful, inspect candidates and only then consider committing/applying parameters with explicit user confirmation.
 6. If still failing after `Configure`, request human review and inspect raw/figure data.
 
-Known successful pattern:
-
-- Q33 on mackerel / `144Qv1`, 2026-07-14:
-  - repeated `CheckRabi` failures with `non-finite frequency: nan`
-  - `CheckChevron` succeeded and estimated:
-    - `qubit_frequency = 4.186021437949582 GHz`
-    - `control_amplitude = 0.196626929963469 a.u.`
-  - `Configure` completed
-  - `CheckRabi` then completed with the CheckChevron estimates:
-    - `rabi_frequency = 12.664970037417886 MHz`
-    - `control_amplitude = 0.19406572753680693 a.u.`
-
 ### CheckChevron interpretation and suggestions
 
-If `CheckChevron` completes:
-
-- Clear vertex/fringes: use estimated `qubit_frequency` and `control_amplitude`, then run `Configure -> CheckRabi` for validation.
-- Faint fringes: suspect insufficient drive, readout fidelity, or initialization/readout contrast; suggest readout diagnostics before parameter commits.
-- No visible chevron: inspect readout path first (`CheckReadoutFrequency`, `ReadoutClassification`) or request human review.
-- Asymmetric/double chevron: suspect TLS, higher-level transitions, AC Stark shift, or frequency collision; avoid committing simple Rabi outputs without review.
+Read `CheckChevron` with `qdash_get_task_knowledge` before judging its figure, estimates, expected curve, or failure mode.
 
 If `CheckChevron` fails:
 
@@ -109,36 +93,11 @@ If `CheckChevron` fails:
 3. Classify the failure message and input/output parameters.
 4. Suggest the next diagnostic, but require user confirmation before another operational action.
 
-Common failed-Chevron suggestions:
-
-- `Qubit frequency too low/high`, boundary hit, or fitted frequency outside normal operating range:
-  - Treat the Chevron estimate as unsafe.
-  - Do not commit/apply candidates.
-  - Do not run `Configure -> CheckRabi` from this estimate.
-  - Suggest `CheckQubitSpectroscopy`, coarse frequency search review, or human figure review.
-- Abnormally large `coarse_control_amplitude`:
-  - Suspect the coarse search latched onto a wrong transition, poor readout contrast, or an invalid operating point.
-  - Suggest spectroscopy/readout diagnostics rather than stronger drive.
-- Failed fit but visually plausible chevron:
-  - Ask the user to inspect figures.
-  - Consider adjusted scan bounds only with explicit user guidance.
-- Faint/washed-out chevron:
-  - Suggest `ReadoutClassification`, `CheckReadoutFrequency`, and initialization/readout checks.
-
-Known failed pattern:
-
-- Q35 on mackerel / `144Qv1`, 2026-07-14:
-  - repeated `CheckRabi` failures with `non-finite frequency: nan`
-  - `CheckChevron` failed with `Qubit frequency too low for qid=35: 2.759894 GHz < 3.0 GHz`
-  - input `coarse_qubit_frequency = 2.894185298591617 GHz`
-  - input `coarse_control_amplitude = 0.5623413251903492 a.u.`
-  - Suggested action: stop, inspect figures, and investigate spectroscopy/coarse frequency/readout state before any Configure/Rabi retry.
+Use the returned task knowledge to choose the next diagnostic. Treat unsafe estimates as non-committable, stop before `Configure -> CheckRabi`, and require confirmation for any additional task.
 
 ### CheckT2Echo failures
 
-- Compare with recent `CheckT1` and `CheckRamsey`.
-- If `T2_echo` is much shorter than `2*T1`, suspect noise/refocusing issues.
-- Verify π/π/2 pulses before treating echo as a pure coherence problem.
+Read `CheckT2Echo`, `CheckT1`, and `CheckRamsey` with `qdash_get_task_knowledge`, then compare their recent results before choosing a diagnostic.
 
 ## Coupling / two-qubit recovery rules
 
@@ -153,9 +112,7 @@ For `ZX90InterleavedRandomizedBenchmarking` or two-qubit validation failures, do
 5. `CheckBellStateTomography`
 6. then RB validation
 
-Treat `completed` as execution status, not proof of quality. If Bell fidelity is low, IRB uncertainty is large, or coherence-limit fidelity is much higher than measured Bell/IRB fidelity, suspect ZX90 angle/phase/cancel/rotary calibration before blaming T1/T2.
-
-If CR rotation is weak, inspect qubit detuning/frequency collisions and coupling history before increasing CR amplitude.
+Treat `completed` as execution status, not proof of quality. Before interpreting Bell, tomography, coherence-limit, CR, ZX90, or IRB output, read each relevant task with `qdash_get_task_knowledge`; then correlate the returned criteria with figures and same-cooldown history.
 
 ## Session policy guidelines
 

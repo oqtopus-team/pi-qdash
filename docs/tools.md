@@ -15,6 +15,7 @@ session profile/chip context when their parameters are omitted.
 - `qdash_get_cooldown_wiring`, `qdash_wiring_insights`, `qdash_list_cooldown_wiring_events`
 - `qdash_get_timeseries`, `qdash_plot_timeseries`, `qdash_inspect_timeseries_csv`, `qdash_compare_timeseries`
 - `qdash_list_task_results`, `qdash_get_task_result`
+- `qdash_get_task_knowledge`: fetch full markdown or a concise structured summary for interpreting a task's expected result and failure modes
 - `qdash_list_issues`
 - `qdash_list_flows`, `qdash_get_flow`
 - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions`

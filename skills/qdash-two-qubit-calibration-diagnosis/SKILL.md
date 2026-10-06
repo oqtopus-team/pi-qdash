@@ -27,7 +27,7 @@ Use this skill when investigating coupling-level calibration quality, especially
 For a coupling `cA-B`:
 
 1. Build context with `qdash_list_cooldowns`, `qdash_target_report`, and recent task results for the coupling. Record the cooldown ID for each result and inspect wiring events when measurement conditions may have changed.
-2. Inspect the latest same-cooldown tasks in this chain by default:
+2. Inspect the latest same-cooldown tasks in this chain by default, and call `qdash_get_task_knowledge` for each task before interpreting its outputs or figures:
    - `CheckCrossResonance`
    - `CreateZX90`
    - `CheckZX90`
@@ -46,51 +46,9 @@ For a coupling `cA-B`:
 
 ## Interpretation rules
 
-### Completed but low quality
+Use `qdash_get_task_knowledge` for `CheckCrossResonance`, `CheckZX90`, `CheckBellState`, `CheckBellStateTomography`, `Check2QGateCoherenceLimit`, and `ZX90InterleavedRandomizedBenchmarking` as applicable. Apply the returned expected-result descriptions, criteria, failure modes, and check questions to the measured outputs.
 
-Flag as suspicious when any of these hold:
-
-- Bell-state tomography fidelity is below ~0.8.
-- IRB fidelity has a large uncertainty/error bar, or `n_trials` is small.
-- Coherence-limit fidelity is high but Bell/IRB fidelity is much lower.
-- `CheckZX90` repeated-pulse traces do not show a stable/consistent response.
-- CR parameter generation succeeds but `cr_amplitude` is near saturation or `zx_rotation_rate` is very small.
-
-### Coherence limit gap
-
-If `two_qubit_gate_coherence_limit` is high but measured Bell/IRB fidelity is low, do not attribute the issue primarily to T1/T2. Suspect control/calibration issues such as:
-
-- ZX90 angle error
-- CR phase error
-- cancel-pulse amplitude/phase mismatch
-- rotary compensation mismatch
-- readout/classification contribution to validation figures
-
-### Bell tomography signals
-
-For a Bell target resembling `( |00> + |11> ) / sqrt(2)`:
-
-- Large `|10>` or `|01>` population suggests population/conditional-rotation error, not just dephasing.
-- Weak `|00><11|` coherence suggests phase, dephasing, or preparation error.
-- Large imaginary coherence can indicate phase-compensation error.
-
-Use the heatmap summaries from `qdash_analyze_figure_json` as numeric evidence. Do not overfit a single plot; correlate with `CheckZX90` and IRB.
-
-### CheckZX90 repeated-pulse signals
-
-Look for stable repeated-pulse behavior. Warnings include:
-
-- Large scatter or non-decaying erratic points after the first few repetitions.
-- Large first-step contrast followed by a non-zero offset.
-- Different qualitative behavior between control and target qubit plots.
-
-These symptoms point toward angle/phase/cancel/rotary issues and should be investigated before trusting IRB.
-
-### IRB caveats
-
-- A `completed` IRB with large error bar is weak evidence.
-- Small `n_trials` should be reported explicitly.
-- If Bell tomography is poor, do not use IRB alone as a pass signal.
+Treat `completed` only as execution status. Correlate task knowledge with `qdash_analyze_figure_json`, same-cooldown history, and adjacent validation tasks; do not overfit one plot or use IRB alone as a pass signal.
 
 ## Recommended action sequence
 
@@ -108,19 +66,4 @@ Inspect figures/results
 
 Each operational step requires explicit confirmation. Validate Bell/tomography before using IRB as the final quality signal.
 
-## Known case: mackerel 144Qv1 c48-50, 20260725-003
-
-Symptoms observed:
-
-- `CheckCrossResonance` completed with `zx_rotation_rate ~ 1.69e-3`.
-- `Check2QGateCoherenceLimit` reported ~0.978.
-- `CheckBellStateTomography` reported `bell_state_fidelity ~ 0.60`.
-- Bell tomography had high `|10>` component/population (~0.29) and non-ideal coherence.
-- `ZX90InterleavedRandomizedBenchmarking` completed with `zx90_gate_fidelity ~0.94` but large error (~0.087) and `n_trials=10`.
-- `CheckZX90` repeated-pulse traces were not clean/stable.
-
-Interpretation:
-
-- This is not primarily coherence-limited.
-- Suspect ZX90 angle/phase/cancel/rotary calibration quality.
-- Prefer walking back through `CheckCrossResonance -> CreateZX90 -> CheckZX90`, then validate with Bell tomography before trusting IRB.
+Historical postmortem cases belong in QDash task knowledge. Retrieve them through `qdash_get_task_knowledge` rather than encoding device-specific values in this procedural skill.
