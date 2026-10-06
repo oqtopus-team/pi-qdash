@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.1.7](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.6...v0.1.7) - 2026-10-06
+
+- feat: add dedicated task knowledge tool by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/24
+
 ## [v0.1.6](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.5...v0.1.6) - 2026-09-10
 
 - feat: make investigations cooldown-aware by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/21
