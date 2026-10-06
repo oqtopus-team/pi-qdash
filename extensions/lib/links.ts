@@ -17,16 +17,28 @@ export function qdashWebUrl(client: QDashClient, path: string): string {
   return `${qdashWebBaseUrl(client)}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
+/** Path of an execution page: under its chip when known, else the id-only route that redirects. */
+export function executionPagePath(executionId: string, chipId?: string | null): string {
+  return chipId
+    ? `/execution/${encodeURIComponent(chipId)}/${encodeURIComponent(executionId)}`
+    : `/executions/${encodeURIComponent(executionId)}`;
+}
+
+export function forumPostPagePath(postId: string): string {
+  return `/forum/${encodeURIComponent(postId)}`;
+}
+
 export function qdashObjectLinks(client: QDashClient, object: Record<string, unknown>): Record<string, string> {
   const links: Record<string, string> = {};
   const taskId = firstString(object, ["task_id", "taskId"]);
   const executionId = firstString(object, ["execution_id", "executionId"]);
+  const chipId = firstString(object, ["chip_id", "chipId"]);
   const postId = firstString(object, ["post_id", "forum_post_id", "id"]);
   const issueId = firstString(object, ["issue_id"]);
   const sessionId = firstString(object, ["session_id", "sessionId"]);
   if (taskId) links.task_result = qdashWebUrl(client, `/task-results/${encodeURIComponent(taskId)}`);
-  if (executionId) links.execution = qdashWebUrl(client, `/executions/${encodeURIComponent(executionId)}`);
-  if (postId) links.forum_post = qdashWebUrl(client, `/forum/posts/${encodeURIComponent(postId)}`);
+  if (executionId) links.execution = qdashWebUrl(client, executionPagePath(executionId, chipId));
+  if (postId) links.forum_post = qdashWebUrl(client, forumPostPagePath(postId));
   if (issueId) links.issue = qdashWebUrl(client, `/issues/${encodeURIComponent(issueId)}`);
   if (sessionId) links.agent_session = qdashWebUrl(client, `/agent-sessions/${encodeURIComponent(sessionId)}`);
   return links;

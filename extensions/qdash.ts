@@ -19,7 +19,7 @@ import { fetchFigureDetails, figureComponent, figureResultText, mediaTypeForPath
 import { forumImageReplyContent, forumImageReplyPreview, loadLocalForumImages, type LocalForumImage } from "./lib/forum-images.js";
 import { forumDetailComponent, forumDetailLines, forumListLines, forumPostTitle, forumPostsFromPayload } from "./lib/forum-render.js";
 import { investigationContextSummary, validateInvestigationContext, type TimeseriesInvestigationContext } from "./lib/investigation-context.js";
-import { qdashObjectLinks, qdashWebBaseUrl, qdashWebUrl, safeConfig, withQDashLinks } from "./lib/links.js";
+import { executionPagePath, forumPostPagePath, qdashObjectLinks, qdashWebBaseUrl, qdashWebUrl, safeConfig, withQDashLinks } from "./lib/links.js";
 import { arrayFromPayload, compactItems, firstNumber, firstString, formatItem, payloadTotal, statusIcon } from "./lib/payload.js";
 import { toFigureToolResult, toTextToolResult, toToolResult } from "./lib/results.js";
 import { ansi, boxLinesToWidth, boxed, formatNumber, textComponent } from "./lib/render.js";
@@ -1419,7 +1419,7 @@ async function buildForumEvidenceReply(client: QDashClient, params: ForumEvidenc
   const targetId = firstString(parent, ["target_id", "targetId"]) ?? couplingId ?? qid;
   const title = params.title ?? `${new Date().toISOString().slice(0, 10)} 追加観測: ${target} ${taskName}`;
   const taskUrl = qdashWebUrl(client, `/task-results/${encodeURIComponent(params.taskId)}`);
-  const executionUrl = executionId ? qdashWebUrl(client, `/executions/${encodeURIComponent(executionId)}`) : undefined;
+  const executionUrl = executionId ? qdashWebUrl(client, executionPagePath(executionId, chipId)) : undefined;
   const figures = params.includeFigures === false ? [] : taskFigurePaths(task, params.maxFigures ?? 2);
   const figureMarkdown = figures.map((path) => `![${filenameFromFigurePath(path)}](${figureApiUrl(path)})`).join("\n\n");
   const history = params.includeHistory === false ? [] : arrayFromPayload(await client.listTaskResults({
@@ -2238,7 +2238,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
     async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; postId: string; color?: boolean }) {
       const client = await makeClient(params);
       const data = await client.getForumPost(params.postId);
-      const url = qdashWebUrl(client, `/forum/posts/${encodeURIComponent(params.postId)}`);
+      const url = qdashWebUrl(client, forumPostPagePath(params.postId));
       return toTextToolResult(`${forumDetailLines(data, "QDash Forum Post", params.color).join("\n")}\nurl ${url}`, withQDashLinks(client, data), { tool: "qdash_get_forum_post", url });
     },
     renderResult(result, _options, theme) {
@@ -2257,7 +2257,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
     async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; postId: string; color?: boolean }) {
       const client = await makeClient(params);
       const data = await client.getForumPostReplies(params.postId);
-      const url = qdashWebUrl(client, `/forum/posts/${encodeURIComponent(params.postId)}`);
+      const url = qdashWebUrl(client, forumPostPagePath(params.postId));
       return toTextToolResult(`${forumListLines(data, "QDash Forum Replies", params.color).join("\n")}\nurl ${url}`, data, { tool: "qdash_list_forum_replies", url });
     },
     renderResult(result, _options, theme) {
