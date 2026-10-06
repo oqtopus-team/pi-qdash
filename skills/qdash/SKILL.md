@@ -3,6 +3,8 @@ name: qdash
 description: Query a running QDash instance from pi via the pi-qdash extension and @oqtopus-team/qdash-client. Use when inspecting chips, metrics, task results, tasks, projects, files, flows, executions, forum posts, provenance, or QDash profile/configuration.
 ---
 
+<!-- Confirmation gates are implemented by the host harness. Skills should state that a gate exists, not instruct how or when to ask for confirmation. -->
+
 # QDash
 
 Use the pi-qdash tools instead of scraping the UI or hand-writing auth headers.
@@ -32,7 +34,7 @@ Prefer the dedicated tool that matches the question. Use `qdash_query` only as a
    - `qdash_investigate`, `qdash_target_report`, `qdash_compare_calibration` — investigate target history and compare calibrations
    - `qdash_recent_calibration_summary`, `qdash_recommend_next_action` — summarize outcomes and recommend a safe next action
    - `qdash_degradation_report`, `qdash_plan_calibration`, `qdash_validate_calibration` — inspect drift, plan work, and validate results
-3. Write-oriented workflow tools, only after explicit confirmation:
+3. Confirmation-gated write tools (the harness asks the user before running them):
    - `qdash_create_agent_session`, `qdash_submit_agent_action`, `qdash_execute_agent_action` — create or execute a scoped agent workflow
    - `qdash_commit_agent_candidate`, `qdash_commit_agent_campaign_candidates` — commit reviewed candidate parameters
    - `qdash_apply_agent_candidate_commit` — apply a reviewed candidate commit
