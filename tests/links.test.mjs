@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { executionPagePath, forumPostPagePath, qdashObjectLinks } from "../.test-dist/lib/links.js";
+import { executionPagePath, forumPostPagePath, qdashObjectLinks, qdashWebBaseUrl } from "../.test-dist/lib/links.js";
 
 const client = { config: { baseUrl: "https://qdash.example/api" } };
 
@@ -24,4 +24,11 @@ test("an execution without a known chip uses the id-only route that redirects", 
   assert.equal(executionPagePath("20261006-012", null), "/executions/20261006-012");
   assert.equal(forumPostPagePath("a/b"), "/forum/a%2Fb");
   assert.equal(qdashObjectLinks(client, { execution_id: "x" }).execution, "https://qdash.example/executions/x");
+});
+
+test("QDASH_WEB_URL overrides the web base derived from the API base URL", () => {
+  assert.equal(qdashWebBaseUrl(client, {}), "https://qdash.example");
+  assert.equal(qdashWebBaseUrl(client, { QDASH_WEB_URL: "https://qdash.lab.example/ " }), "https://qdash.lab.example");
+  assert.equal(qdashWebBaseUrl({ config: { baseUrl: "http://api:5715" } }, { QDASH_WEB_URL: "http://localhost:5714" }), "http://localhost:5714");
+  assert.equal(qdashWebBaseUrl({ config: { baseUrl: "http://api:5715" } }, { QDASH_WEB_URL: "" }), "http://api:5715");
 });

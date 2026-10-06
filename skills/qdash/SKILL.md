@@ -134,6 +134,7 @@ For cryostat wiring requests, start with `qdash_get_cooldown_wiring`. Pass `cool
 The extension uses `@oqtopus-team/qdash-client` and supports:
 
 - `QDASH_*` environment variables (`QDASH_BASE_URL`, `QDASH_API_TOKEN`, `QDASH_PROJECT_ID`, etc.)
+- `QDASH_WEB_URL`: the QDash web UI address used for links in tool output, when it differs from the API base URL (for example inside a deployment where the API is reached by an internal hostname)
 - `$XDG_CONFIG_HOME/qdash/config.ini`
 - `~/.config/qdash/config.ini`
 - explicit `profile` / `configPath` parameters
