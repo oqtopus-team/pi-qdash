@@ -58,7 +58,7 @@ Workflow:
 2. Turn the request into steps. Start from the catalog defaults and the flow templates (`qdash_query` with `flow_templates`, then `flow_template` for one template's task list): `OneQubitCheck` and `OneQubitFineTune` carry the standard one-qubit sequences, `TwoQubitCalibration` the two-qubit chain. Use `CustomOneQubit` / `CustomTwoQubit` only where the user wants a different task list, and keep the task order the templates use.
 3. `qdash_plan_pipeline` — validate. A result with problems is not an error: each problem carries a path into the spec (`steps[2].tasks[0]`, `targets.qids[1]`); fix it and plan again until it is valid.
 4. Show the user the resolved steps and task counts from the plan, then `qdash_run_pipeline` with the same `chipId` and `spec`. The execution is confirmation-gated.
-5. `qdash_wait_execution` with the returned `execution_id`, then summarize which targets passed and which failed, and read `qdash_get_task_knowledge` for any task whose result needs interpretation.
+5. `qdash_wait_execution` with the returned `execution_id`. It returns when the whole run has finished, not just its first step. Then summarize which targets passed and which failed, fetch the figures of failed tasks with `qdash_get_task_figures` so the user sees them, and read `qdash_get_task_knowledge` for any task whose result needs interpretation.
 
 Rules:
 
