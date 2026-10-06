@@ -23,6 +23,9 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      - name: Install npm with trusted publishing support
+        run: npm install --global npm@11
+
       - name: Install dependencies
         run: npm ci
 
@@ -32,12 +35,13 @@ jobs:
       - name: Verify tag matches package version
         run: |
           PACKAGE_VERSION="v$(node -p "require('./package.json').version")"
-          if [ "$GITHUB_REF_NAME" != "$PACKAGE_VERSION" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            git fetch --no-tags --depth=1 origin "refs/tags/$PACKAGE_VERSION:refs/tags/$PACKAGE_VERSION"
+            git diff --exit-code "$PACKAGE_VERSION" HEAD -- package.json package-lock.json README.md LICENSE extensions skills
+          elif [ "$GITHUB_REF_NAME" != "$PACKAGE_VERSION" ]; then
             echo "Tag $GITHUB_REF_NAME does not match package version $PACKAGE_VERSION" >&2
             exit 1
           fi
 
       - name: Publish
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --access public
