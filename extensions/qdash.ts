@@ -75,9 +75,6 @@ type QDashQueryParams = {
     | "flow_helper_file"
     | "executions"
     | "execution"
-    | "ai_reviews"
-    | "ai_review_runs"
-    | "ai_review_run"
     | "forum_posts"
     | "provenance_stats"
     | "provenance_history"
@@ -98,7 +95,6 @@ type QDashQueryParams = {
   templateId?: string;
   filename?: string;
   executionId?: string;
-  reviewRunId?: string;
   entityId?: string;
   parameter?: string;
   parameterName?: string;
@@ -106,7 +102,6 @@ type QDashQueryParams = {
   date?: string;
   backend?: string;
   status?: string;
-  decision?: string;
   username?: string;
   messageContains?: string;
   startAt?: string;
@@ -114,7 +109,6 @@ type QDashQueryParams = {
   startFrom?: string;
   startTo?: string;
   isClosed?: boolean;
-  latestOnly?: boolean;
   withinHours?: number;
   limit?: number;
   skip?: number;
@@ -323,9 +317,6 @@ const QueryAction = Type.Union([
   Type.Literal("flow_helper_file"),
   Type.Literal("executions"),
   Type.Literal("execution"),
-  Type.Literal("ai_reviews"),
-  Type.Literal("ai_review_runs"),
-  Type.Literal("ai_review_run"),
   Type.Literal("forum_posts"),
   Type.Literal("provenance_stats"),
   Type.Literal("provenance_history"),
@@ -367,7 +358,6 @@ const querySchema = Type.Object({
   templateId: Type.Optional(Type.String()),
   filename: Type.Optional(Type.String()),
   executionId: Type.Optional(Type.String()),
-  reviewRunId: Type.Optional(Type.String()),
   entityId: Type.Optional(Type.String()),
   parameter: Type.Optional(Type.String({ description: "Metric/parameter name for timeseries." })),
   parameterName: Type.Optional(Type.String()),
@@ -375,7 +365,6 @@ const querySchema = Type.Object({
   date: Type.Optional(Type.String({ description: "History date, usually YYYYMMDD." })),
   backend: Type.Optional(Type.String()),
   status: Type.Optional(Type.String()),
-  decision: Type.Optional(Type.String()),
   username: Type.Optional(Type.String()),
   messageContains: Type.Optional(Type.String()),
   startAt: Type.Optional(Type.String()),
@@ -383,7 +372,6 @@ const querySchema = Type.Object({
   startFrom: Type.Optional(Type.String()),
   startTo: Type.Optional(Type.String()),
   isClosed: Type.Optional(Type.Boolean()),
-  latestOnly: Type.Optional(Type.Boolean()),
   withinHours: Type.Optional(Type.Number()),
   limit: Type.Optional(Type.Number()),
   skip: Type.Optional(Type.Number()),
@@ -466,7 +454,7 @@ function qcalEvidenceText(evidence: CalibrationEvidence): string {
     `Figures ${figures.length}`,
     ...figures.map((figure, index) => `  - #${index + 1} ${String(figure.role ?? "plot")} ${String(figure.path ?? figure.url ?? "")}`),
     "",
-    "Use qcal_evaluate_bundle with details.evidence to evaluate this evidence with pi-qcal.",
+    "Pass this summary as the context of qcal_evaluate; the embedded figure is the measured result to judge.",
   ]).join("\n");
 }
 
@@ -1252,12 +1240,11 @@ async function buildDashboardInsights(params: { profile?: string; configPath?: s
   const limit = params.limit ?? 30;
   const end = new Date();
   const start = new Date(end.getTime() - (params.withinHours ?? 168) * 3600_000);
-  const [forums, issues, failed, metrics, aiInsights] = await Promise.allSettled([
+  const [forums, issues, failed, metrics] = await Promise.allSettled([
     client.listForumPosts({ chipId, status: "open", limit }),
     client.api.listIssues({ is_closed: false, limit }),
     client.api.listTaskResults({ chip_id: chipId, status: "failed", start_from: start.toISOString(), start_to: end.toISOString(), limit }),
     client.getChipMetrics(chipId),
-    client.api.getDashboardAiInsights(chipId, { latest_only: true, start_at: start.toISOString(), end_at: end.toISOString() }),
   ]);
   const value = <T>(result: PromiseSettledResult<T>): T | undefined => result.status === "fulfilled" ? result.value : undefined;
   const insightMap = new Map<string, DashboardInsight>();
@@ -1288,20 +1275,6 @@ async function buildDashboardInsights(params: { profile?: string; configPath?: s
   }
 
   addMetricInsights(insightMap, value(metrics), client);
-
-  const aiPayload = value(aiInsights);
-  for (const item of arrayFromPayload(aiPayload).filter((entry): entry is Record<string, unknown> => Boolean(entry) && typeof entry === "object")) {
-    const title = firstString(item, ["title", "summary"]) ?? "QDash AI insight";
-    const severityValue = firstString(item, ["severity"])?.toLowerCase();
-    const severity: DashboardInsight["severity"] = severityValue === "critical" ? "critical" : severityValue === "warning" ? "warning" : "info";
-    const targets = Array.isArray(item.affected_targets) ? item.affected_targets.filter((target): target is string => typeof target === "string") : [];
-    for (const rawTarget of targets) {
-      const target = rawTarget.match(/^Q/i) ? `q${rawTarget.replace(/^Q0*/i, "")}` : rawTarget.match(/^C/i) ? `c${rawTarget.slice(1)}` : targetFromText(rawTarget);
-      if (!target) continue;
-      const evidence = firstString(item, ["recommended_action", "primary_reason"]) ?? `QDash AI insight: ${title}`;
-      addEvidence(insightMap, target, severity, title, evidence, firstString(item, ["recommended_action"]) ?? "Review the QDash AI insight and supporting task evidence.");
-    }
-  }
 
   const insights = [...insightMap.values()].sort((a, b) => {
     const rank = { critical: 2, warning: 1, info: 0 } as const;
@@ -1515,9 +1488,6 @@ async function executeQuery(params: QDashQueryParams) {
     case "flow_helper_file": return client.api.getFlowHelperFile(requireValue(params.filename, "filename"));
     case "executions": return rawGet(client, "/executions", { chip_id: params.chipId, flow_name: params.flowName, status: params.status, skip: params.skip, limit: params.limit });
     case "execution": return client.getExecution(requireValue(params.executionId, "executionId"));
-    case "ai_reviews": return client.api.listTaskResultAiReviews({ chip_id: params.chipId, task_name: params.taskName, status: params.status, decision: params.decision, latest_only: params.latestOnly, skip: params.skip, limit: params.limit });
-    case "ai_review_runs": return client.api.listTaskResultAiReviewRuns({ chip_id: params.chipId, task_name: params.taskName, skip: params.skip, limit: params.limit });
-    case "ai_review_run": return client.api.getTaskResultAiReviewRun(requireValue(params.reviewRunId, "reviewRunId"));
     case "forum_posts": return client.listForumPosts({ status: params.status, chipId: params.chipId, limit: params.limit, skip: params.skip });
     case "provenance_stats": return client.getProvenanceStats();
     case "provenance_history": return client.api.getParameterHistory({ parameter_name: requireValue(params.parameterName ?? params.parameter, "parameterName"), qid: requireValue(params.qid, "qid"), limit: params.limit });
@@ -1938,15 +1908,6 @@ export default function qdashExtension(pi: ExtensionAPI) {
     promptSnippet: "Get QDash execution details by execution ID",
     action: "execution",
     parameters: Type.Object({ ...connectionParams, executionId: Type.String() }),
-  });
-
-  registerQueryTool({
-    name: "qdash_list_ai_reviews",
-    label: "QDash List AI Reviews",
-    description: "List task-result AI reviews with optional filters.",
-    promptSnippet: "List QDash task-result AI reviews",
-    action: "ai_reviews",
-    parameters: Type.Object({ ...connectionParams, chipId: Type.Optional(Type.String()), taskName: Type.Optional(Type.String()), status: Type.Optional(Type.String()), decision: Type.Optional(Type.String()), latestOnly: Type.Optional(Type.Boolean()), limit: Type.Optional(Type.Number()), skip: Type.Optional(Type.Number()) }),
   });
 
   pi.registerTool({
@@ -2652,12 +2613,12 @@ export default function qdashExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "qdash_build_qcal_evidence",
     label: "QDash Build QCal Evidence",
-    description: "Build a provider-neutral CalibrationEvidence bundle from a QDash task result for evaluation by pi-qcal.",
-    promptSnippet: "Convert QDash calibration task results into pi-qcal CalibrationEvidence",
+    description: "Summarize a QDash task result (target, parameters, metrics, figure analysis) as evidence for pi-qcaleval's qcal_evaluate, returning the task figure as image content.",
+    promptSnippet: "Summarize a QDash calibration task result as evidence for qcal_evaluate",
     promptGuidelines: [
-      "Use qdash_build_qcal_evidence before qcal_evaluate_bundle when the user asks to evaluate QDash calibration data with pi-qcal.",
+      "Use qdash_build_qcal_evidence before qcal_evaluate when the user asks to evaluate a QDash calibration task with pi-qcaleval; pass the returned summary as the context of qcal_evaluate.",
       "qdash_build_qcal_evidence is read-only and only converts QDash data into a generic evidence bundle; it does not evaluate, execute, commit, or apply calibration parameters.",
-      "After qdash_build_qcal_evidence, pass details.evidence to qcal_evaluate_bundle and treat the result as advisory evidence.",
+      "The task figure comes back as image content, so qcal_evaluate can follow directly without fetching the figure again; treat the evaluation as advisory evidence.",
     ],
     parameters: Type.Object({
       ...connectionParams,
@@ -2671,6 +2632,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
       const client = await makeClient(params);
       const task = await client.getTaskResult(params.taskId) as unknown as Record<string, unknown>;
       const figures: Array<Record<string, unknown>> = [];
+      const images: Array<{ type: "image"; data: string; mimeType: string }> = [];
       const notes: string[] = [];
       const figurePaths = Array.isArray(task.figure_path) ? task.figure_path.filter((item): item is string => typeof item === "string") : [];
       const jsonFigurePaths = Array.isArray(task.json_figure_path) ? task.json_figure_path.filter((item): item is string => typeof item === "string") : [];
@@ -2699,7 +2661,9 @@ export default function qdashExtension(pi: ExtensionAPI) {
             const bytes = Buffer.from(file.data);
             const mediaType = file.mediaType || mediaTypeForPath(file.path ?? figurePaths[index] ?? "");
             if (mediaType.startsWith("image/")) {
-              figures.push({ path: file.path ?? figurePaths[index], url: `data:${mediaType};base64,${bytes.toString("base64")}`, mimeType: mediaType, role: "plot" });
+              const base64 = bytes.toString("base64");
+              figures.push({ path: file.path ?? figurePaths[index], url: `data:${mediaType};base64,${base64}`, mimeType: mediaType, role: "plot" });
+              images.push({ type: "image", data: base64, mimeType: mediaType });
             }
           } catch (error) {
             notes.push(`Figure image #${index + 1} embedding failed: ${error instanceof Error ? error.message : String(error)}`);
@@ -2744,7 +2708,8 @@ export default function qdashExtension(pi: ExtensionAPI) {
         },
       };
 
-      return toTextToolResult(qcalEvidenceText(evidence), { evidence }, { tool: "qdash_build_qcal_evidence", taskId: params.taskId, evidence });
+      const result = toTextToolResult(qcalEvidenceText(evidence), { evidence }, { tool: "qdash_build_qcal_evidence", taskId: params.taskId, evidence });
+      return { ...result, content: [...result.content, ...images] };
     },
   });
 
