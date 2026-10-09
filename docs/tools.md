@@ -20,7 +20,7 @@ session profile/chip context when their parameters are omitted.
 - `qdash_list_flows`, `qdash_get_flow`
 - `qdash_get_pipeline_catalog`, `qdash_plan_pipeline`: list the step types and tasks for a calibration pipeline spec, and validate a spec (problems with paths, resolved tasks per step) without running it
 - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions`
-- `qdash_list_ai_reviews`, `qdash_get_provenance_stats`
+- `qdash_get_provenance_stats`
 - `qdash_list_forum_posts`, `qdash_get_forum_post`, `qdash_list_forum_replies`
 - `qdash_preview_forum_evidence_reply`, `qdash_preview_forum_image_reply`
 - `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`, `qdash_analyze_figure_json`, `qdash_build_qcal_evidence`
@@ -96,9 +96,10 @@ Figure tools fetch calibration PNG/JSON figures by path or task result through
 qdash-client helpers, and render images in interactive TUI. `qdash_analyze_figure_json`
 fetches Plotly JSON figures and summarizes numeric scatter/heatmap traces for
 read-only agentic diagnosis; domain-specific conclusions belong in skills.
-`qdash_build_qcal_evidence` converts a task result, output/input/run parameters,
-figure summaries, and optional embedded figure images into a provider-neutral
-`CalibrationEvidence` bundle that can be passed to pi-qcal's `qcal_evaluate_bundle`.
+`qdash_build_qcal_evidence` summarizes a task result, its output/input/run
+parameters, and figure analysis as evidence for pi-qcaleval's `qcal_evaluate`:
+the text goes in as `context`, and the task figure is returned as image content
+so the evaluation can see the plot without a second fetch.
 
 Forum evidence can be previewed read-only with
 `qdash_preview_forum_evidence_reply`, then published through

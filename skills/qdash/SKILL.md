@@ -26,7 +26,7 @@ Prefer the dedicated tool that matches the question. Use `qdash_query` only as a
    - `qdash_list_flows`, `qdash_get_flow` — list or inspect calibration flows
    - `qdash_get_pipeline_catalog`, `qdash_plan_pipeline` — compose and check a calibration pipeline spec before running it
    - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions` — inspect, await, or compare executions
-   - `qdash_list_ai_reviews`, `qdash_get_provenance_stats` — inspect AI reviews or provenance status
+   - `qdash_get_provenance_stats` — inspect provenance status
    - `qdash_list_forum_posts`, `qdash_get_forum_post`, `qdash_list_forum_replies` — inspect Forum context
    - `qdash_preview_forum_evidence_reply`, `qdash_preview_forum_image_reply` — preview evidence or image replies without writing
    - `qdash_get_figure`, `qdash_get_task_figures`, `qdash_recent_calibration_figure`, `qdash_analyze_figure_json`, `qdash_build_qcal_evidence` — inspect or package figure evidence
@@ -164,5 +164,5 @@ When the user wants to preserve an investigated observation in QDash forum/notes
 - Use `qdash_compare_calibration` when the user asks what changed between recent calibration experiments; treat differences as evidence, not automatic approval to commit/apply parameters.
 - Use `qdash_recent_calibration_figure` when the user asks to see recent experiment images without a task ID.
 - Use `qdash_analyze_figure_json` for read-only numeric summaries of Plotly JSON calibration figures; keep domain-specific interpretation in the matching skill.
-- Use `qdash_build_qcal_evidence` when the user wants to evaluate a QDash calibration task with pi-qcal. It only converts QDash data into provider-neutral `CalibrationEvidence`; pass `details.evidence` to `qcal_evaluate_bundle` for the actual evaluation.
+- Use `qdash_build_qcal_evidence` when the user wants to evaluate a QDash calibration task with pi-qcaleval. It only summarizes QDash data and returns the task figure; pass the summary as `context` to `qcal_evaluate` for the actual evaluation.
 - Prefer summarizing large responses with counts, IDs, time ranges, and notable values.
