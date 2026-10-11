@@ -1,5 +1,15 @@
 # Changelog
 
+## [v0.1.10](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.9...v0.1.10) - 2026-10-09
+
+- feat: add calibration pipeline tools by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/30
+- feat: publish beta builds from main by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/32
+- feat: expose figures as image content by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/33
+- chore: update qdash client beta by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/34
+- fix: use correct QDash web routes by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/35
+- feat: support a separate QDash web URL by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/36
+- fix: remove retired AI review APIs and update qcaleval integration by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/37
+
 ## [v0.1.9](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.8...v0.1.9) - 2026-10-06
 
 - fix: make write tool guidance harness neutral by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/28
