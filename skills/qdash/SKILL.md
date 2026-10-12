@@ -22,7 +22,6 @@ Prefer the dedicated tool that matches the question. Use `qdash_query` only as a
    - `qdash_inspect_timeseries_csv`, `qdash_compare_timeseries` — validate and compare multiple QDash or CSV timeseries
    - `qdash_list_task_results`, `qdash_get_task_result` — find and inspect calibration results
    - `qdash_get_task_knowledge` — interpret a task's purpose, expected result, failure modes, and check questions
-   - `qdash_list_issues` — inspect tracked issues
    - `qdash_list_flows`, `qdash_get_flow` — list or inspect calibration flows
    - `qdash_get_pipeline_catalog`, `qdash_plan_pipeline` — compose and check a calibration pipeline spec before running it
    - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions` — inspect, await, or compare executions
@@ -57,7 +56,7 @@ Workflow:
 1. `qdash_get_pipeline_catalog` — read the step types (with what each needs from an earlier step and its default task list), the one-qubit modes, and the task names by type. Use only names from this catalog.
 2. Turn the request into steps. Start from the catalog defaults and the flow templates (`qdash_query` with `flow_templates`, then `flow_template` for one template's task list): `OneQubitCheck` and `OneQubitFineTune` carry the standard one-qubit sequences, `TwoQubitCalibration` the two-qubit chain. Use `CustomOneQubit` / `CustomTwoQubit` only where the user wants a different task list, and keep the task order the templates use.
 3. `qdash_plan_pipeline` — validate. A result with problems is not an error: each problem carries a path into the spec (`steps[2].tasks[0]`, `targets.qids[1]`); fix it and plan again until it is valid.
-4. Show the user the resolved steps and task counts from the plan, then `qdash_run_pipeline` with the same `chipId` and `spec`. The execution is confirmation-gated.
+4. Show the user the resolved steps and task counts from the plan, then `qdash_run_pipeline` with the same `chipId` and `spec`. The execution is confirmation-gated. Say that completed tasks write their calibrated parameters to QDash directly; there is no candidate gate, so inside an agent calibration session use the session's actions instead.
 5. `qdash_wait_execution` with the returned `execution_id`. It returns when the whole run has finished, not just its first step. Then summarize which targets passed and which failed, fetch the figures of failed tasks with `qdash_get_task_figures` so the user sees them, and read `qdash_get_task_knowledge` for any task whose result needs interpretation.
 
 Rules:
@@ -160,7 +159,7 @@ When the user wants to preserve an investigated observation in QDash forum/notes
 - Never print tokens, passwords, Cloudflare Access secrets, or full profile contents.
 - Treat write/operational endpoints (agent session/action creation, candidate commits, forum create/update, flow execute, git push/pull, re-execute, admin/auth APIs) as sensitive and ask the user before any write workflow.
 - Write-oriented QDash tools are approval-gated. In interactive pi, let the extension prompt for confirmation. In non-interactive runs, set `confirmWrite: true` only after explicit user confirmation.
-- Use `qdash_investigate` for natural-language requests to investigate, compare, or understand a target or recent calibration; it is read-only and combines recent results with target, Forum, issue, and recommendation context.
+- Use `qdash_investigate` for natural-language requests to investigate, compare, or understand a target or recent calibration; it is read-only and combines recent results with target, Forum, and recommendation context.
 - Use `qdash_compare_calibration` when the user asks what changed between recent calibration experiments; treat differences as evidence, not automatic approval to commit/apply parameters.
 - Use `qdash_recent_calibration_figure` when the user asks to see recent experiment images without a task ID.
 - Use `qdash_analyze_figure_json` for read-only numeric summaries of Plotly JSON calibration figures; keep domain-specific interpretation in the matching skill.

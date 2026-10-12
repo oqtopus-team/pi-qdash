@@ -250,10 +250,12 @@ export function registerCalibrationPipelineTools(pi: Pick<ExtensionAPI, "registe
   pi.registerTool({
     name: "qdash_run_pipeline",
     label: "QDash Run Pipeline",
-    description: "Run a calibration pipeline spec as one QDash execution. Confirmation-gated write operation. Validate with qdash_plan_pipeline first; the spec runs exactly as validated.",
+    description: "Run a calibration pipeline spec as one QDash execution. Completed tasks write their calibrated parameters to QDash directly, without an agent candidate gate. Confirmation-gated write operation. Validate with qdash_plan_pipeline first; the spec runs exactly as validated.",
     promptSnippet: "Run a validated QDash calibration pipeline spec",
     promptGuidelines: [
       "Use qdash_run_pipeline only for a spec that qdash_plan_pipeline reported valid.",
+      "Tell the user before running that completed tasks update calibrated parameters in QDash directly.",
+      "Do not use qdash_run_pipeline to run a task an agent session action failed to run; that skips the session's candidate gate. Report the failure instead.",
       "After it starts, follow the execution with qdash_wait_execution and summarize failed targets.",
     ],
     parameters: Type.Object({
@@ -265,7 +267,7 @@ export function registerCalibrationPipelineTools(pi: Pick<ExtensionAPI, "registe
     }),
     async execute(_toolCallId, params: ConnectionParams & { chipId: string; spec: Record<string, unknown>; backendName?: string; confirmWrite?: boolean }, _signal, _onUpdate, ctx) {
       if (!params.confirmWrite) {
-        if (!ctx.hasUI || !(await ctx.ui.confirm("Run QDash calibration pipeline?", `This starts a calibration execution on chip ${params.chipId}.`))) {
+        if (!ctx.hasUI || !(await ctx.ui.confirm("Run QDash calibration pipeline?", `This starts a calibration execution on chip ${params.chipId}. Completed tasks update calibrated parameters in QDash directly.`))) {
           throw new Error("qdash_run_pipeline requires explicit confirmation");
         }
       }

@@ -16,7 +16,6 @@ session profile/chip context when their parameters are omitted.
 - `qdash_get_timeseries`, `qdash_plot_timeseries`, `qdash_inspect_timeseries_csv`, `qdash_compare_timeseries`
 - `qdash_list_task_results`, `qdash_get_task_result`
 - `qdash_get_task_knowledge`: fetch full markdown or a concise structured summary for interpreting a task's expected result and failure modes
-- `qdash_list_issues`
 - `qdash_list_flows`, `qdash_get_flow`
 - `qdash_get_pipeline_catalog`, `qdash_plan_pipeline`: list the step types and tasks for a calibration pipeline spec, and validate a spec (problems with paths, resolved tasks per step) without running it
 - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions`
@@ -59,7 +58,7 @@ and `useInvestigationContext: false` disables the preset for one call.
 
 ## Overview and insight tools
 
-- `qdash_investigate`: natural-language-friendly read-only correlation of recent calibration, target history, failures, issues, and Forum context
+- `qdash_investigate`: natural-language-friendly read-only correlation of recent calibration, target history, failures, and Forum context
 - `qdash_compare_calibration`: compare repeated calibration output parameters
 - `qdash_dashboard`, `qdash_dashboard_insights`
 - `qdash_recent_calibration_summary`
@@ -73,7 +72,7 @@ and `useInvestigationContext: false` disables the preset for one call.
 `qdash_dashboard` and `qdash_triage_overview` provide boxed compact text output
 for non-interactive runs and custom TUI renderers for nicer interactive tool
 results. `qdash_target_report` correlates one qubit/coupling's recent task
-results, failures, open issues, forum posts, and a conservative next-action
+results, failures, open Forum posts, and a conservative next-action
 recommendation; it is read-only and never executes calibration.
 `qdash_plan_calibration` turns that evidence into a confirmation-gated dry-run
 runbook with explicit safety gates. Pass `color: true` to emit ANSI-colored
@@ -85,7 +84,9 @@ text output in terminal-oriented non-interactive usage.
 - `qdash_submit_agent_action`
 - `qdash_get_agent_action`, `qdash_list_agent_actions`, `qdash_wait_agent_action`
 - `qdash_list_agent_action_candidates`
-- `qdash_execute_agent_action`
+- `qdash_execute_agent_action` — runs the action's task the way the Task Workbench does: inputs
+  from the current calibration state, outputs staged until a candidate is committed.
+  `sourceExecutionId` is optional and only records what the action was decided from.
 - `qdash_commit_agent_candidate`, `qdash_commit_agent_campaign_candidates`
 - `qdash_get_agent_candidate_commit`, `qdash_apply_agent_candidate_commit`, `qdash_wait_agent_candidate_apply`
 
@@ -116,7 +117,9 @@ step types QDash accepts (with their dependencies and default task lists) and
 the backend's tasks by type, `qdash_plan_pipeline` validates a spec and returns
 problems with paths into the spec plus the exact tasks each step will run, and
 confirmation-gated `qdash_run_pipeline` starts the validated spec as one QDash
-execution. The spec is sent as-is; QDash owns validation, and a 422 with
+execution. Completed tasks write their calibrated parameters to QDash directly,
+with no agent candidate gate, so it is not a fallback for a failed agent action.
+The spec is sent as-is; QDash owns validation, and a 422 with
 problems is reported as text rather than raised. Follow the execution with
 `qdash_wait_execution`.
 

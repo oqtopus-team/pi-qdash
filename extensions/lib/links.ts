@@ -44,12 +44,10 @@ export function qdashObjectLinks(client: QDashClient, object: Record<string, unk
   const executionId = firstString(object, ["execution_id", "executionId"]);
   const chipId = firstString(object, ["chip_id", "chipId"]);
   const postId = firstString(object, ["post_id", "forum_post_id", "id"]);
-  const issueId = firstString(object, ["issue_id"]);
   const sessionId = firstString(object, ["session_id", "sessionId"]);
   if (taskId) links.task_result = qdashWebUrl(client, `/task-results/${encodeURIComponent(taskId)}`);
   if (executionId) links.execution = qdashWebUrl(client, executionPagePath(executionId, chipId));
   if (postId) links.forum_post = qdashWebUrl(client, forumPostPagePath(postId));
-  if (issueId) links.issue = qdashWebUrl(client, `/issues/${encodeURIComponent(issueId)}`);
   if (sessionId) links.agent_session = qdashWebUrl(client, `/agent-sessions/${encodeURIComponent(sessionId)}`);
   return links;
 }
