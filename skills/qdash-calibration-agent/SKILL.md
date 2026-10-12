@@ -47,7 +47,7 @@ This skill defines how pi should behave as a conservative, confirmation-gated ca
    - any in-cooldown wiring changes relevant to the target
    - failed task(s)
    - qid/coupling_id
-   - recent executions and open forum/issue context
+   - recent executions and open Forum context
 2. Read evidence:
    - `qdash_list_task_results`
    - `qdash_get_task_result`
@@ -144,3 +144,7 @@ Stop and request human review when:
 - the same target fails after `CheckChevron` and `Configure`
 - figures suggest TLS, frequency collision, leakage, or multi-level behavior
 - the next action would require broad parameter sweeps or hardware-risky changes
+- QDash refuses to run an agent action's task before it measures anything (a platform or
+  configuration error, not a calibration result). Report the error with the task result and
+  execution links; do not rerun the task through another path such as `qdash_run_pipeline`,
+  which writes parameters without the session's candidate gate
