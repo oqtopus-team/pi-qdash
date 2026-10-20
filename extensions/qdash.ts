@@ -25,6 +25,7 @@ import { toFigureToolResult, toTextToolResult, toToolResult } from "./lib/result
 import { ansi, boxLinesToWidth, boxed, formatNumber, textComponent } from "./lib/render.js";
 import { plotSeriesLines, timeseriesPlotComponent, timeseriesPoints } from "./lib/timeseries-plot.js";
 import { installQDashWriteGate } from "./lib/write-gate.js";
+import { qcalContextText, recordedParameters, sweepsOf, type RecordedParameter, type Sweep } from "./lib/qcal-evidence.js";
 import { registerCalibrationPipelineTools } from "./tools/calibration-pipeline.js";
 import { registerTaskKnowledgeTool } from "./tools/task-knowledge.js";
 import { registerTimeseriesComparisonTool } from "./tools/timeseries.js";
@@ -405,6 +406,14 @@ type CalibrationEvidence = {
   task?: Record<string, unknown>;
   metrics?: Record<string, number | string | boolean | null>;
   parameters?: Record<string, number | string | boolean | null>;
+  /** The run parameters as recorded, with units and value types. */
+  runParameters?: Record<string, RecordedParameter>;
+  /** The calibration inputs as recorded (previous values), with units. */
+  inputParameters?: Record<string, RecordedParameter>;
+  /** The output parameters as recorded (fitted results), with units. */
+  metricRecords?: Record<string, RecordedParameter>;
+  /** The swept parameters among them: the axes the plot was taken along. */
+  sweeps?: Sweep[];
   resultJson?: unknown;
   figures?: Array<Record<string, unknown>>;
   logs?: string[];
@@ -431,23 +440,24 @@ function firstStringField(object: Record<string, unknown>, keys: string[]): stri
   return undefined;
 }
 
-function qcalEvidenceText(evidence: CalibrationEvidence): string {
-  const metrics = Object.entries(evidence.metrics ?? {}).slice(0, 8).map(([key, value]) => `  - ${key}: ${String(value)}`);
-  const figures = evidence.figures ?? [];
-  return boxed("QDash QCal Evidence", [
-    `id ${evidence.id ?? "n/a"}`,
-    `source ${evidence.source}`,
-    `target ${evidence.target?.id ?? evidence.target?.couplingId ?? evidence.target?.qids ?? "n/a"}`,
-    `task ${evidence.task?.name ?? "n/a"} (${evidence.task?.status ?? "unknown"})`,
-    "",
-    "Metrics",
-    ...(metrics.length ? metrics : ["  - none"]),
-    "",
-    `Figures ${figures.length}`,
-    ...figures.map((figure, index) => `  - #${index + 1} ${String(figure.role ?? "plot")} ${String(figure.path ?? figure.url ?? "")}`),
-    "",
-    "Pass this summary as the context of qcal_evaluate; the embedded figure is the measured result to judge.",
-  ]).join("\n");
+/**
+ * The evidence text, used as the context of `qcal_evaluate`: the task, the
+ * target, the sweep and the run settings. Fitted results and calibration
+ * inputs are left out unless asked for, since the evaluation model is meant
+ * to read them off the plot.
+ */
+function qcalEvidenceText(evidence: CalibrationEvidence, include: { inputs?: boolean; metrics?: boolean } = {}): string {
+  return qcalContextText({
+    taskName: typeof evidence.task?.name === "string" ? evidence.task.name : undefined,
+    status: typeof evidence.task?.status === "string" ? evidence.task.status : undefined,
+    targetKind: typeof evidence.target?.kind === "string" ? evidence.target.kind : undefined,
+    targetId: typeof evidence.target?.id === "string" ? evidence.target.id : undefined,
+    chipId: typeof evidence.target?.chipId === "string" ? evidence.target.chipId : undefined,
+    runParameters: evidence.runParameters ?? {},
+    ...(include.inputs ? { inputParameters: recordedParameters(evidence.inputParameters) } : {}),
+    ...(include.metrics ? { metrics: recordedParameters(evidence.metricRecords) } : {}),
+    message: typeof evidence.task?.message === "string" ? evidence.task.message : undefined,
+  });
 }
 
 function cleanQuery(values: Record<string, unknown> = {}): Record<string, unknown> {
@@ -2574,7 +2584,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
   pi.registerTool({
     name: "qdash_build_qcal_evidence",
     label: "QDash Build QCal Evidence",
-    description: "Summarize a QDash task result (target, parameters, metrics, figure analysis) as evidence for pi-qcaleval's qcal_evaluate, returning the task figure as image content.",
+    description: "Summarize a QDash task result (target, sweep and run settings) as evidence for pi-qcaleval's qcal_evaluate, returning the task figure as image content. Fitted results are left out unless includeMetrics is set.",
     promptSnippet: "Summarize a QDash calibration task result as evidence for qcal_evaluate",
     promptGuidelines: [
       "Use qdash_build_qcal_evidence before qcal_evaluate when the user asks to evaluate a QDash calibration task with pi-qcaleval; pass the returned summary as the context of qcal_evaluate.",
@@ -2588,8 +2598,10 @@ export default function qdashExtension(pi: ExtensionAPI) {
       includeFigureAnalysis: Type.Optional(Type.Boolean({ description: "Analyze Plotly JSON figures and include summaries/warnings in notes. Defaults to true." })),
       maxFigures: Type.Optional(Type.Number({ description: "Maximum image figures to embed. Defaults to 1." })),
       includeRawTaskResult: Type.Optional(Type.Boolean({ description: "Include the full raw task result in resultJson. Defaults to false." })),
+      includeInputs: Type.Optional(Type.Boolean({ description: "Add the calibration inputs (previous values) to the evidence text. Defaults to false: the evaluation model reads the plot." })),
+      includeMetrics: Type.Optional(Type.Boolean({ description: "Add the fitted output parameters to the evidence text. Defaults to false: the evaluation model reads the plot." })),
     }),
-    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; taskId: string; includeFigures?: boolean; includeFigureAnalysis?: boolean; maxFigures?: number; includeRawTaskResult?: boolean }) {
+    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; taskId: string; includeFigures?: boolean; includeFigureAnalysis?: boolean; maxFigures?: number; includeRawTaskResult?: boolean; includeInputs?: boolean; includeMetrics?: boolean }) {
       const client = await makeClient(params);
       const task = await client.getTaskResult(params.taskId) as unknown as Record<string, unknown>;
       const figures: Array<Record<string, unknown>> = [];
@@ -2634,6 +2646,7 @@ export default function qdashExtension(pi: ExtensionAPI) {
 
       const couplingId = firstStringField(task, ["coupling_id", "couplingId", "qid"]);
       const qid = firstStringField(task, ["qid"]);
+      const runParameters = recordedParameters(task.run_parameters);
       const evidence: CalibrationEvidence = {
         id: params.taskId,
         source: "external",
@@ -2651,9 +2664,14 @@ export default function qdashExtension(pi: ExtensionAPI) {
           startedAt: firstStringField(task, ["start_at", "startAt"]),
           completedAt: firstStringField(task, ["end_at", "endAt"]),
           status: firstStringField(task, ["status"]),
+          message: typeof task.message === "string" && task.message.trim() ? task.message.trim() : undefined,
         },
         metrics: parameterValueRecord(task.output_parameters),
         parameters: { ...parameterValueRecord(task.input_parameters), ...parameterValueRecord(task.run_parameters) },
+        runParameters,
+        sweeps: sweepsOf(runParameters),
+        inputParameters: recordedParameters(task.input_parameters),
+        metricRecords: recordedParameters(task.output_parameters),
         figures: figures.length ? figures : undefined,
         notes: [
           typeof task.message === "string" ? `Task message: ${task.message}` : undefined,
@@ -2669,7 +2687,11 @@ export default function qdashExtension(pi: ExtensionAPI) {
         },
       };
 
-      const result = toTextToolResult(qcalEvidenceText(evidence), { evidence }, { tool: "qdash_build_qcal_evidence", taskId: params.taskId, evidence });
+      const result = toTextToolResult(
+        qcalEvidenceText(evidence, { inputs: params.includeInputs === true, metrics: params.includeMetrics === true }),
+        { evidence },
+        { tool: "qdash_build_qcal_evidence", taskId: params.taskId, evidence },
+      );
       return { ...result, content: [...result.content, ...images] };
     },
   });

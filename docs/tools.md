@@ -97,10 +97,15 @@ Figure tools fetch calibration PNG/JSON figures by path or task result through
 qdash-client helpers, and render images in interactive TUI. `qdash_analyze_figure_json`
 fetches Plotly JSON figures and summarizes numeric scatter/heatmap traces for
 read-only agentic diagnosis; domain-specific conclusions belong in skills.
-`qdash_build_qcal_evidence` summarizes a task result, its output/input/run
-parameters, and figure analysis as evidence for pi-qcaleval's `qcal_evaluate`:
-the text goes in as `context`, and the task figure is returned as image content
-so the evaluation can see the plot without a second fetch.
+`qdash_build_qcal_evidence` summarizes a task result as evidence for
+pi-qcaleval's `qcal_evaluate`: the text names the task, the target, the sweep
+(read from the recorded run parameters, with units and point counts) and the
+other run settings, and goes in as `context`; the task figure is returned as
+image content so the evaluation can see the plot without a second fetch. The
+fitted output parameters and the calibration inputs are left out of the text
+unless `includeMetrics` / `includeInputs` is set, since the evaluation model is
+meant to read the plot; the details carry them all (`runParameters`, `sweeps`,
+`inputParameters`, `metricRecords`).
 
 Forum evidence can be previewed read-only with
 `qdash_preview_forum_evidence_reply`, then published through
