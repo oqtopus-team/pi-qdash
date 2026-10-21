@@ -68,6 +68,14 @@ test("sweeps and settings are written with units, a.u. left out", () => {
   assert.equal(formatNumber(0.016979), "0.01698");
   assert.equal(formatNumber(153600), "153600");
   assert.equal(formatNumber(1.5e-7), "1.5e-7");
+  // Log-spaced endpoints are the integers they round to.
+  assert.equal(formatNumber(10 ** 5.698970004336019), "500000");
+  assert.equal(formatNumber(10 ** 2.0), "100");
+  assert.equal(formatNumber(26.19000001), "26.19");
+  assert.equal(
+    formatSweep(sweepsOf(recordedParameters({ t: { unit: "ns", value_type: "np.logspace", value: [2.0, 5.698970004336019, 51] } }))[0]),
+    "t 100 to 500000 ns, 51 points log-spaced",
+  );
 });
 
 test("the context names the task and target, the sweep and the settings, and nothing fitted by default", () => {
