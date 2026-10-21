@@ -93,7 +93,12 @@ export function sweepsOf(parameters: Record<string, RecordedParameter>): Sweep[]
 /** A number for the model: up to four significant digits, no trailing zeros. */
 export function formatNumber(value: number): string {
   if (!Number.isFinite(value)) return String(value);
-  if (Number.isInteger(value) && Math.abs(value) < 1e15) return String(value);
+  if (value === 0) return "0";
+  // A log-spaced endpoint comes back as 499999.99999994; it is the integer it rounds to.
+  const rounded = Math.round(value);
+  if (rounded !== 0 && Math.abs(value - rounded) <= 1e-9 * Math.abs(value) && Math.abs(rounded) < 1e15) {
+    return String(rounded);
+  }
   const text = Math.abs(value) >= 1e6 || Math.abs(value) < 1e-4 ? value.toExponential(3) : value.toPrecision(4);
   return text.includes("e") ? text.replace(/\.?0+e/, "e") : text.replace(/(\.\d*?)0+$/, "$1").replace(/\.$/, "");
 }
