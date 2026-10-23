@@ -99,6 +99,19 @@ function notFound(error: unknown): boolean {
   return value.status === 404 || value.statusCode === 404 || value.response?.status === 404 || /\b404\b|not found/i.test(String(value.message ?? ""));
 }
 
+const INLINE_IMAGE = /\(data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=]+\)/g;
+
+/**
+ * The knowledge markdown as the model should read it: QDash inlines the
+ * expected-plot figures as base64 data URIs for self-contained rendering, which
+ * costs tens of thousands of tokens and tells a text model nothing. The alt
+ * text stays; the figure itself is shown on QDash's Knowledge page and by
+ * qdash_get_figure for results.
+ */
+export function withoutInlineImages(markdown: string): string {
+  return markdown.replace(INLINE_IMAGE, "(figure omitted: shown on the task's Knowledge page)");
+}
+
 export function registerTaskKnowledgeTool(pi: Pick<ExtensionAPI, "registerTool">, deps: TaskKnowledgeDependencies): void {
   pi.registerTool({
     name: "qdash_get_task_knowledge",
@@ -125,9 +138,11 @@ export function registerTaskKnowledgeTool(pi: Pick<ExtensionAPI, "registerTool">
           : await client.getTaskKnowledgeMarkdown(params.taskName);
         const markdown = format === "summary"
           ? taskKnowledgeSummary(data as TaskKnowledge)
-          : typeof data === "string"
-            ? data
-            : text((data as { markdown?: unknown })?.markdown) ?? JSON.stringify(data, null, 2);
+          : withoutInlineImages(
+              typeof data === "string"
+                ? data
+                : text((data as { markdown?: unknown })?.markdown) ?? JSON.stringify(data, null, 2),
+            );
         return toTextToolResult(markdown, data, { taskName: params.taskName, format, found: true });
       } catch (error) {
         if (!notFound(error)) throw error;

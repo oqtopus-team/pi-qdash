@@ -17,6 +17,7 @@ session profile/chip context when their parameters are omitted.
 - `qdash_list_task_results`, `qdash_get_task_result`
 - `qdash_get_task_knowledge`: fetch full markdown or a concise structured summary for interpreting a task's expected result and failure modes
 - `qdash_list_flows`, `qdash_get_flow`
+- `qdash_save_flow`, `qdash_execute_flow` (confirmation-gated): save a Prefect flow the agent wrote as a QDash workflow (QDash validates the `@flow` function, formats the file, and registers its deployment), and run a saved flow with parameters
 - `qdash_get_pipeline_catalog`, `qdash_plan_pipeline`: list the step types and tasks for a calibration pipeline spec, and validate a spec (problems with paths, resolved tasks per step) without running it
 - `qdash_list_executions`, `qdash_get_execution`, `qdash_wait_execution`, `qdash_compare_executions`
 - `qdash_get_provenance_stats`

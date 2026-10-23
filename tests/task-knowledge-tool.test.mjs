@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { registerTaskKnowledgeTool, similarTaskNames, taskKnowledgeSummary } from "../.test-dist/tools/task-knowledge.js";
+import { registerTaskKnowledgeTool, similarTaskNames, taskKnowledgeSummary, withoutInlineImages } from "../.test-dist/tools/task-knowledge.js";
 
 function registeredTool(client) {
   const tools = new Map();
@@ -57,4 +57,15 @@ test("unknown task is non-fatal and suggests matching names", async () => {
 test("task knowledge helpers format summaries and rank prefix matches", () => {
   assert.deepEqual(similarTaskNames("rabi", ["CheckRabi", "RabiScan", "Ramsey"]), ["RabiScan", "CheckRabi"]);
   assert.match(taskKnowledgeSummary({ name: "Task", expected_result: {}, failure_modes: [] }), /Not documented/);
+});
+
+test("inline figures are dropped from the markdown the model reads", async () => {
+  const image = `data:image/png;base64,${"iVBORw0KGgo".repeat(4000)}`;
+  const tool = registeredTool({
+    async getTaskKnowledgeMarkdown() { return `# CheckRabi\n\n![Rabi oscillation](${image})\n\nAxes: time, P(1)`; },
+  });
+  const result = await tool.execute("test", { taskName: "CheckRabi" });
+  assert.equal(result.content[0].text, "# CheckRabi\n\n![Rabi oscillation](figure omitted: shown on the task's Knowledge page)\n\nAxes: time, P(1)");
+  assert.ok(result.content[0].text.length < 200);
+  assert.equal(withoutInlineImages("plain ![a](https://x/y.png)"), "plain ![a](https://x/y.png)");
 });
