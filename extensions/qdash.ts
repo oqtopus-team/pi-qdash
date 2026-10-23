@@ -25,8 +25,10 @@ import { toFigureToolResult, toTextToolResult, toToolResult } from "./lib/result
 import { ansi, boxLinesToWidth, boxed, formatNumber, textComponent } from "./lib/render.js";
 import { plotSeriesLines, timeseriesPlotComponent, timeseriesPoints } from "./lib/timeseries-plot.js";
 import { installQDashWriteGate } from "./lib/write-gate.js";
+import { withAbort } from "./lib/abort.js";
 import { qcalContextText, recordedParameters, sweepsOf, type RecordedParameter, type Sweep } from "./lib/qcal-evidence.js";
 import { registerCalibrationPipelineTools } from "./tools/calibration-pipeline.js";
+import { registerFlowAuthoringTools } from "./tools/flow-authoring.js";
 import { registerTaskKnowledgeTool } from "./tools/task-knowledge.js";
 import { registerTimeseriesComparisonTool } from "./tools/timeseries.js";
 import { analyzeWiringMarkdown, wiringInsightLines, type WiringInsights } from "./lib/wiring-analysis.js";
@@ -1484,6 +1486,11 @@ export default function qdashExtension(pi: ExtensionAPI) {
     makeClient,
     resolveChipId: (client, chipId) => defaultChipId(client as QDashClient, chipId),
   });
+  registerFlowAuthoringTools(pi, {
+    makeClient,
+    resolveChipId: (client, chipId) => defaultChipId(client as QDashClient, chipId),
+    flowPageUrl: (client, name) => qdashWebUrl(client as QDashClient, `/workflow/${encodeURIComponent(name)}`),
+  });
 
   pi.registerTool({
     name: "qdash_config_info",
@@ -1827,9 +1834,13 @@ export default function qdashExtension(pi: ExtensionAPI) {
       timeoutSeconds: Type.Optional(Type.Number()),
       pollIntervalSeconds: Type.Optional(Type.Number()),
     }),
-    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; executionId: string; timeoutSeconds?: number; pollIntervalSeconds?: number }) {
+    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; executionId: string; timeoutSeconds?: number; pollIntervalSeconds?: number }, signal) {
       const client = await makeClient(params);
-      const data = await client.waitForExecution(params.executionId, { timeoutSeconds: params.timeoutSeconds, pollIntervalSeconds: params.pollIntervalSeconds });
+      const data = await withAbort(
+        client.waitForExecution(params.executionId, { timeoutSeconds: params.timeoutSeconds, pollIntervalSeconds: params.pollIntervalSeconds }),
+        signal,
+        `Waiting for execution ${params.executionId}`,
+      );
       return toToolResult(withQDashLinks(client, data), { tool: "qdash_wait_execution", executionId: params.executionId, webBaseUrl: qdashWebBaseUrl(client) });
     },
   });
@@ -2036,12 +2047,16 @@ export default function qdashExtension(pi: ExtensionAPI) {
       timeoutSeconds: Type.Optional(Type.Number()),
       pollIntervalSeconds: Type.Optional(Type.Number()),
     }),
-    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; sessionId: string; actionId: string; waitForExecution?: boolean; timeoutSeconds?: number; pollIntervalSeconds?: number }) {
+    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; sessionId: string; actionId: string; waitForExecution?: boolean; timeoutSeconds?: number; pollIntervalSeconds?: number }, signal) {
       const client = await makeClient(params);
       const options = { timeoutSeconds: params.timeoutSeconds, pollIntervalSeconds: params.pollIntervalSeconds };
-      const data = params.waitForExecution
-        ? await client.waitForAgentActionExecution(params.sessionId, params.actionId, options)
-        : await client.waitForAgentAction(params.sessionId, params.actionId, options);
+      const data = await withAbort(
+        params.waitForExecution
+          ? client.waitForAgentActionExecution(params.sessionId, params.actionId, options)
+          : client.waitForAgentAction(params.sessionId, params.actionId, options),
+        signal,
+        `Waiting for agent action ${params.actionId}`,
+      );
       return toToolResult(data, { tool: "qdash_wait_agent_action" });
     },
   });
@@ -2440,9 +2455,16 @@ export default function qdashExtension(pi: ExtensionAPI) {
     promptSnippet: "Poll QDash until a candidate apply operation finishes",
     promptGuidelines: ["Use qdash_wait_agent_candidate_apply after applying a candidate commit when the user wants polling."],
     parameters: Type.Object({ ...connectionParams, sessionId: Type.String(), commitId: Type.String(), timeoutSeconds: Type.Optional(Type.Number()), pollIntervalSeconds: Type.Optional(Type.Number()) }),
-    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; sessionId: string; commitId: string; timeoutSeconds?: number; pollIntervalSeconds?: number }) {
+    async execute(_toolCallId, params: { profile?: string; configPath?: string; useEnv?: boolean; sessionId: string; commitId: string; timeoutSeconds?: number; pollIntervalSeconds?: number }, signal) {
       const client = await makeClient(params);
-      return toToolResult(await client.waitForAgentCandidateApply(params.sessionId, params.commitId, { timeoutSeconds: params.timeoutSeconds, pollIntervalSeconds: params.pollIntervalSeconds }), { tool: "qdash_wait_agent_candidate_apply" });
+      return toToolResult(
+        await withAbort(
+          client.waitForAgentCandidateApply(params.sessionId, params.commitId, { timeoutSeconds: params.timeoutSeconds, pollIntervalSeconds: params.pollIntervalSeconds }),
+          signal,
+          `Waiting for candidate commit ${params.commitId}`,
+        ),
+        { tool: "qdash_wait_agent_candidate_apply" },
+      );
     },
   });
 

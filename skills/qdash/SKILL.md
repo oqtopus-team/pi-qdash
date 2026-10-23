@@ -41,6 +41,7 @@ Prefer the dedicated tool that matches the question. Use `qdash_query` only as a
    - `qdash_create_forum_post`, `qdash_update_forum_post` — create or update Forum content
    - `qdash_create_forum_evidence_reply`, `qdash_create_forum_image_reply` — publish previously reviewed evidence replies
    - `qdash_run_pipeline` — run a validated pipeline spec as one execution
+   - `qdash_save_flow`, `qdash_execute_flow` — save a Prefect flow you wrote as a QDash workflow, and run a saved flow (see Authoring a flow)
 4. Agent workflow state tools:
    - `qdash_get_agent_session`, `qdash_get_agent_action`, `qdash_list_agent_actions`, `qdash_wait_agent_action` — inspect agent workflow state
    - `qdash_list_agent_action_candidates`, `qdash_get_agent_candidate_commit`, `qdash_wait_agent_candidate_apply` — inspect candidates and apply status
@@ -66,6 +67,17 @@ Rules:
 - Put values into `task_run_parameters` only when the user asked for them; otherwise leave QDash's defaults.
 - A pipeline takes the project execution lock. Check `qdash_list_executions` for a running execution before starting one.
 - Prefer short pipelines (one or two steps) when the next step depends on the result: run, inspect results and figures, then compose the next spec. Calibrated parameters persist in QDash between executions, so a later spec continues from the earlier one. Retries and branches are your decision between executions, not something the spec expresses.
+
+## Authoring a flow
+
+A flow is a Python module with one `@flow` function that QDash runs on its workflow worker, with hardware and database access. Pipelines (above) cover ordered task lists without code; write a flow only when the user needs logic a pipeline cannot express: loops until convergence, branching on results, custom parameter sweeps.
+
+Workflow:
+
+1. Start from what exists. `qdash_query` with `flow_templates` lists the templates and `flow_template` returns one with its code; `qdash_get_flow` returns a saved flow; `flow_helper_files` / `flow_helper_file` show the helpers templates import. Keep the template's structure: its imports, the `@flow` signature, and the terminal handling at the end of the run.
+2. Write the module. Name the `@flow` function like the flow unless the user wants otherwise. Task and parameter names must come from `qdash_get_pipeline_catalog` and the template; do not invent them. When a shell workspace is available, draft the file there and run `python -m py_compile` on it before showing it.
+3. Show the user the complete code and the chip it is for, then `qdash_save_flow`. QDash checks the `@flow` function, formats the file, registers a Prefect deployment, and replaces a flow of the same name. A rejection comes back as text with QDash's reason; fix the code and save again.
+4. Saving does not run anything. Run it only when the user asks: `qdash_execute_flow` with the flow's parameters (confirmation-gated, takes the project execution lock), then `qdash_wait_execution`.
 
 ## Session context
 

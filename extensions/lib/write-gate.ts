@@ -12,6 +12,8 @@ const WRITE_TOOL_NAMES = new Set([
   "qdash_create_forum_evidence_reply",
   "qdash_create_forum_image_reply",
   "qdash_run_pipeline",
+  "qdash_save_flow",
+  "qdash_execute_flow",
 ]);
 
 export function installQDashWriteGate(pi: ExtensionAPI): void {
