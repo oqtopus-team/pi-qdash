@@ -1,5 +1,13 @@
 # Changelog
 
+## [v0.1.11](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.10...v0.1.11) - 2026-10-26
+
+- fix: align agent actions and Forum tools with current QDash by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/38
+- feat: include recorded sweeps in calibration evidence by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/40
+- fix: round near-integer sweep endpoints by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/41
+- feat: add confirmed flow authoring and cancellable waits by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/42
+- feat: align agent plans with candidate set commits by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/43
+
 ## [v0.1.10](https://github.com/oqtopus-team/pi-qdash/compare/v0.1.9...v0.1.10) - 2026-10-09
 
 - feat: add calibration pipeline tools by @orangekame3 in https://github.com/oqtopus-team/pi-qdash/pull/30
