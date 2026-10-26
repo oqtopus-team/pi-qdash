@@ -81,14 +81,16 @@ text output in terminal-oriented non-interactive usage.
 
 ## Agent calibration workflow tools
 
-- `qdash_create_agent_session`, `qdash_get_agent_session`
+- `qdash_create_agent_session`, `qdash_get_agent_session` — the `policy` object is passed to QDash as is;
+  `autonomy: auto` plus `max_rounds_per_target` lets an approved plan run without per-step confirmation
+  (see the `qdash-calibration-agent` skill, "Autonomous plan").
 - `qdash_submit_agent_action`
 - `qdash_get_agent_action`, `qdash_list_agent_actions`, `qdash_wait_agent_action`
 - `qdash_list_agent_action_candidates`
 - `qdash_execute_agent_action` — runs the action's task the way the Task Workbench does: inputs
   from the current calibration state, outputs staged until a candidate is committed.
   `sourceExecutionId` is optional and only records what the action was decided from.
-- `qdash_commit_agent_candidate`, `qdash_commit_agent_campaign_candidates`
+- `qdash_commit_agent_candidate`, `qdash_commit_agent_candidate_set`
 - `qdash_get_agent_candidate_commit`, `qdash_apply_agent_candidate_commit`, `qdash_wait_agent_candidate_apply`
 
 ## Forum and figure tools

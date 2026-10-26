@@ -36,7 +36,7 @@ Prefer the dedicated tool that matches the question. Use `qdash_query` only as a
    - `qdash_degradation_report`, `qdash_plan_calibration`, `qdash_validate_calibration` — inspect drift, plan work, and validate results
 3. Confirmation-gated write tools (the harness asks the user before running them):
    - `qdash_create_agent_session`, `qdash_submit_agent_action`, `qdash_execute_agent_action` — create or execute a scoped agent workflow
-   - `qdash_commit_agent_candidate`, `qdash_commit_agent_campaign_candidates` — commit reviewed candidate parameters
+   - `qdash_commit_agent_candidate`, `qdash_commit_agent_candidate_set` — commit reviewed candidate parameters
    - `qdash_apply_agent_candidate_commit` — apply a reviewed candidate commit
    - `qdash_create_forum_post`, `qdash_update_forum_post` — create or update Forum content
    - `qdash_create_forum_evidence_reply`, `qdash_create_forum_image_reply` — publish previously reviewed evidence replies
