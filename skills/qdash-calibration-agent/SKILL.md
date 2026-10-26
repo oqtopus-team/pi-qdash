@@ -13,7 +13,7 @@ metadata:
   preferred_qubit_recovery_recipe: CheckRabi -> CheckChevron -> Configure -> CheckRabi
   requires_confirmation_for:
     - agent session creation
-    - task execution
+    - task execution (per step unless the session policy sets autonomy: auto)
     - parameter commit
     - backend apply
   related_qdash_tasks:
@@ -113,6 +113,27 @@ For `ZX90InterleavedRandomizedBenchmarking` or two-qubit validation failures, do
 6. then RB validation
 
 Treat `completed` as execution status, not proof of quality. Before interpreting Bell, tomography, coherence-limit, CR, ZX90, or IRB output, read each relevant task with `qdash_get_task_knowledge`; then correlate the returned criteria with figures and same-cooldown history.
+
+## Autonomous plan (autonomy: auto)
+
+A session created with `autonomy: auto` delegates the step-by-step confirmation once: the user
+approves the plan, the override bounds, the action budget, and `max_rounds_per_target`, and the
+plan then chooses each next node from the calibration evaluation of the last result. Treat
+the grant as the confirmation; do not ask again per node.
+
+- Build the plan only from nodes the user approved; every node's task must be in `allowed_tasks`.
+- The next step comes from the task knowledge's `next_actions` table (read it with
+  `qdash_get_task_knowledge`; the `next_actions` field lists what each evaluation status leads
+  to). Do not improvise a step for a status the table does not cover; the plan stops for the
+  user there, and that is correct.
+- The plan stops for the user when the same status returns three times, the fit is judged
+  unreliable twice in a row, an evaluation does not complete, a suggested range leaves the
+  session bounds, or a node's round budget is spent. Report the stop with the evaluations it
+  recorded (evaluation id, status, suggested range, chosen node) and the execution links.
+- Candidates are still committed only through the candidate gate with explicit confirmation,
+  unless the user asked for `commit_on_success` when approving the plan.
+- For CheckRabi recovery the plan is `rabi` → (`NO_SIGNAL`) `chevron` → `rabi-reconfigured`
+  with `reconfigure_before_task`; the session must allow reconfiguration.
 
 ## Session policy guidelines
 

@@ -2378,30 +2378,30 @@ export default function qdashExtension(pi: ExtensionAPI) {
   });
 
   pi.registerTool({
-    name: "qdash_commit_agent_campaign_candidates",
-    label: "QDash Commit Agent Campaign Candidates",
-    description: "Commit multiple QDash agent campaign candidates. This is a write operation and requires confirmation.",
-    promptSnippet: "Commit multiple QDash agent candidates after explicit user confirmation",
-    promptGuidelines: ["Use qdash_commit_agent_campaign_candidates only after showing the candidate set and receiving explicit confirmation."],
+    name: "qdash_commit_agent_candidate_set",
+    label: "QDash Commit Agent Candidate Set",
+    description: "Commit a reviewed QDash agent candidate set (several candidates at once). This is a write operation and requires confirmation.",
+    promptSnippet: "Commit a QDash agent candidate set after explicit user confirmation",
+    promptGuidelines: ["Use qdash_commit_agent_candidate_set only after showing the candidate set and receiving explicit confirmation."],
     parameters: Type.Object({
       ...connectionParams,
       sessionId: Type.String(),
-      candidates: Type.Array(Type.Any({ description: "Agent campaign candidate references accepted by QDash." })),
+      candidates: Type.Array(Type.Any({ description: "Agent plan candidate references accepted by QDash." })),
       idempotencyKey: Type.Optional(Type.String()),
       expectedStateVersion: Type.Number(),
       confirmWrite: Type.Optional(Type.Boolean()),
     }),
     async execute(_toolCallId, params: ConfirmableParams & { profile?: string; configPath?: string; useEnv?: boolean; sessionId: string; candidates: unknown[]; idempotencyKey?: string; expectedStateVersion: number }, _signal, _onUpdate, ctx) {
       if (!params.confirmWrite) {
-        if (!ctx.hasUI || !(await ctx.ui.confirm("Commit QDash agent campaign candidates?", `Commit ${params.candidates.length} candidate(s)?`))) {
-          throw new Error("qdash_commit_agent_campaign_candidates requires explicit confirmation");
+        if (!ctx.hasUI || !(await ctx.ui.confirm("Commit QDash agent candidate set?", `Commit ${params.candidates.length} candidate(s)?`))) {
+          throw new Error("qdash_commit_agent_candidate_set requires explicit confirmation");
         }
       }
       const client = await makeClient(params);
-      return toToolResult(await client.commitAgentCampaignCandidates(params.sessionId, params.candidates as never, {
+      return toToolResult(await client.commitAgentCandidateSet(params.sessionId, params.candidates as never, {
         idempotencyKey: params.idempotencyKey ?? randomUUID(),
         expectedStateVersion: params.expectedStateVersion,
-      }), { tool: "qdash_commit_agent_campaign_candidates" });
+      }), { tool: "qdash_commit_agent_candidate_set" });
     },
   });
 
