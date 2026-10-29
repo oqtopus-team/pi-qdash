@@ -10,10 +10,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/oqtopus-team/pi-qdash.git"
+    "url": "git+https://github.com/oqtopus-team/qdash.git",
+    "directory": "packages/pi-qdash"
   },
-  "homepage": "https://github.com/oqtopus-team/pi-qdash#readme",
-  "bugs": "https://github.com/oqtopus-team/pi-qdash/issues",
+  "homepage": "https://github.com/oqtopus-team/qdash/tree/develop/packages/pi-qdash#readme",
+  "bugs": "https://github.com/oqtopus-team/qdash/issues",
   "keywords": [
     "pi-package",
     "pi-extension",
