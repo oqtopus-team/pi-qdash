@@ -3,6 +3,11 @@
 
 # pi-qdash
 
+> [!WARNING]
+> This repository is retained for release history. Active development and npm publishing have
+> moved to [QDash's pi-qdash package](https://github.com/oqtopus-team/qdash/tree/develop/packages/pi-qdash).
+> Open new issues and pull requests in [QDash](https://github.com/oqtopus-team/qdash).
+
 [![CI](https://github.com/oqtopus-team/qdash/actions/workflows/publish-typescript-packages.yml/badge.svg)](https://github.com/oqtopus-team/qdash/actions/workflows/publish-typescript-packages.yml)
 [![npm version](https://img.shields.io/npm/v/%40oqtopus-team%2Fpi-qdash.svg)](https://www.npmjs.com/package/@oqtopus-team/pi-qdash)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
